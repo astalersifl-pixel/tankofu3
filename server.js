@@ -1,20 +1,21 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
+const io = new Server(server, { cors: { origin: '*', methods: ['GET', 'POST'] } });
 
-const PORT = process.env.PORT || 3000;
+// 静的ファイルの提供（ルート直下のindex.htmlおよびpublic）
+app.use(express.static(__dirname));
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
-// ルートディレクトリの index.html を直接配信
+app.get('/ping', (req, res) => res.send('pong'));
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -69,136 +70,88 @@ function shuffle(array) {
   return arr;
 }
 
-function broadcastState(extra = {}) {
-  gameState.players.forEach((p, idx) => {
-    const isCurrent = (idx === gameState.currentTurnIndex && gameState.isGameStarted);
-    const opponents = gameState.players.map((other, oIdx) => ({
+function broadcastState(extraData = null) {
+  const currentTurnPlayer = gameState.players[gameState.currentTurnIndex];
+
+  gameState.players.forEach(p => {
+    const sanitizedPlayers = gameState.players.map(other => ({
       id: other.id,
       name: other.name,
       scoreCardCount: other.scoreCards.length,
       eventCardCount: other.eventCards.length,
-      isCurrentTurn: (oIdx === gameState.currentTurnIndex && gameState.isGameStarted)
+      isCurrentTurn: currentTurnPlayer && currentTurnPlayer.id === other.id
     }));
 
-    io.to(p.id).emit('state_update', {
+    const clientState = {
       isGameStarted: gameState.isGameStarted,
-      isMyTurn: isCurrent,
-      myHand: {
-        scoreCards: p.scoreCards,
-        eventCards: p.eventCards
-      },
-      opponents,
-      deckCounts: {
-        mine: gameState.decks.mineDeck.length,
-        action: gameState.decks.actionDeck.length,
-        event: gameState.decks.eventDeck.length
-      },
-      logs: gameState.logs.slice(-5),
+      playerCount: gameState.players.length,
       allPlayerNames: gameState.players.map(pl => pl.name),
-      extraData: extra
-    });
-  });
-}
+      myHand: { scoreCards: p.scoreCards, eventCards: p.eventCards },
+      opponents: sanitizedPlayers,
+      deckCounts: {
+        mine: gameState.decks.mineDeck ? gameState.decks.mineDeck.length : 0,
+        action: gameState.decks.actionDeck ? gameState.decks.actionDeck.length : 0,
+        event: gameState.decks.eventDeck ? gameState.decks.eventDeck.length : 0
+      },
+      isMyTurn: currentTurnPlayer && currentTurnPlayer.id === p.id,
+      logs: gameState.logs.slice(-6),
+      extraData: extraData
+    };
 
-function broadcastLobby() {
-  io.emit('lobby_status', {
-    players: gameState.players.map(p => p.name),
-    isGameStarted: gameState.isGameStarted
+    io.to(p.id).emit('state_update', clientState);
   });
-}
-
-function drawFromMine(player, count) {
-  let drawn = [];
-  for (let i = 0; i < count; i++) {
-    if (gameState.decks.mineDeck.length > 0) {
-      drawn.push(gameState.decks.mineDeck.pop());
-    }
-  }
-  player.scoreCards.push(...drawn);
-  const cardNames = drawn.map(c => c.name || (c.type === 'bomb' ? '爆弾' : `${c.value}点`)).join(', ');
-  gameState.logs.push(`${player.name} は鉱山から【${drawn.length}枚】採掘しました`);
 }
 
 function nextTurn() {
+  if (gameState.players.length === 0) return;
   gameState.currentTurnIndex = (gameState.currentTurnIndex + 1) % gameState.players.length;
   broadcastState();
 }
 
-function endGame() {
-  gameState.logs.push('鉱山が空になりました！ ゲーム終了です！');
-
-  let results = gameState.players.map(p => {
-    let hasBomb = p.scoreCards.some(c => c.type === 'bomb');
-    let validScores = p.scoreCards.filter(c => c.type === 'score');
-
-    // 爆弾所持の場合、ランダムで1枚得点カード破壊
-    if (hasBomb && validScores.length > 0) {
-      const destroyedIdx = Math.floor(Math.random() * validScores.length);
-      validScores.splice(destroyedIdx, 1);
+function drawFromMine(player, count) {
+  let drawn = 0;
+  for (let i = 0; i < count; i++) {
+    if (gameState.decks.mineDeck.length > 0) {
+      player.scoreCards.push(gameState.decks.mineDeck.pop());
+      drawn++;
     }
-
-    const total = validScores.reduce((sum, c) => sum + (c.value || 0), 0);
-    return {
-      name: p.name,
-      score: total,
-      hasBomb: hasBomb
-    };
-  });
-
-  results.sort((a, b) => b.score - a.score);
-  const maxScore = results[0] ? results[0].score : 0;
-  const winners = results.filter(r => r.score === maxScore).map(r => r.name);
-
-  broadcastState({
-    gameOver: true,
-    results: results,
-    winners: winners,
-    maxScore: maxScore
-  });
+  }
+  return drawn;
 }
 
 io.on('connection', (socket) => {
-  // 初期ロビー情報を送信
   socket.emit('lobby_status', {
+    playerCount: gameState.players.length,
     players: gameState.players.map(p => p.name),
     isGameStarted: gameState.isGameStarted
   });
 
-  // プレイヤー参加
   socket.on('join_game', (playerName) => {
-    if (gameState.isGameStarted) {
-      socket.emit('error_message', 'すでにゲームが開始されています');
-      return;
-    }
-    if (gameState.players.length >= 5) {
-      socket.emit('error_message', '定員（5名）に達しています');
-      return;
-    }
+    if (gameState.isGameStarted) return socket.emit('error_message', 'ゲーム中のため参加できません');
+    if (gameState.players.length >= 5) return socket.emit('error_message', '満員です（最大5名）');
 
-    const player = {
+    const cleanName = (playerName || '').trim() || `プレイヤー${gameState.players.length + 1}`;
+    const newPlayer = {
       id: socket.id,
-      name: playerName || `採掘者${gameState.players.length + 1}`,
+      name: cleanName,
       scoreCards: [],
       eventCards: []
     };
-    gameState.players.push(player);
-    gameState.logs.push(`${player.name} が入室しました`);
-
-    broadcastLobby();
+    gameState.players.push(newPlayer);
+    gameState.logs.push(`${newPlayer.name} が入室しました（計${gameState.players.length}名）`);
     broadcastState();
   });
 
-  // ゲーム開始
   socket.on('start_game', () => {
-    if (gameState.players.length < 1) return;
-    if (gameState.isGameStarted) return;
-
-    gameState.isGameStarted = true;
+    if (gameState.players.length < 1) {
+      return socket.emit('error_message', 'プレイヤーが足りません');
+    }
     gameState.decks = initializeDecks();
     gameState.discardActionDeck = [];
+    gameState.isGameStarted = true;
     gameState.currentTurnIndex = 0;
-    gameState.logs.push('ゲームが開始されました！');
-
+    gameState.players.forEach(p => { p.scoreCards = []; p.eventCards = []; });
+    gameState.logs.push('ゲームを開始しました！');
     broadcastState();
   });
 
@@ -325,61 +278,91 @@ io.on('connection', (socket) => {
           }
         }
       });
-
       if (targets.length > 0 && maxCount > 0) {
-        const victim = targets[Math.floor(Math.random() * targets.length)];
-        const robIdx = Math.floor(Math.random() * victim.scoreCards.length);
-        const stolen = victim.scoreCards.splice(robIdx, 1)[0];
-        currentPlayer.scoreCards.push(stolen);
-        gameState.logs.push(`${currentPlayer.name} は ${victim.name} からカードを強奪しました！`);
+        const target = targets[Math.floor(Math.random() * targets.length)];
+        const robIdx = Math.floor(Math.random() * target.scoreCards.length);
+        const robbed = target.scoreCards.splice(robIdx, 1)[0];
+        currentPlayer.scoreCards.push(robbed);
+        gameState.logs.push(`${currentPlayer.name} は ${target.name} から得点を1枚奪いました`);
       } else {
-        gameState.logs.push('強奪できる相手がいませんでした');
+        gameState.logs.push('他プレイヤーに奪える得点がありませんでした');
+      }
+    } else if (usedCard.id === 'trade') {
+      // 取引：他プレイヤー1人とランダムに得点カード1枚を交換
+      const otherPlayersWithCards = gameState.players.filter(p => p.id !== currentPlayer.id && p.scoreCards.length > 0);
+      if (currentPlayer.scoreCards.length > 0 && otherPlayersWithCards.length > 0) {
+        const partner = otherPlayersWithCards[Math.floor(Math.random() * otherPlayersWithCards.length)];
+        const myCardIdx = Math.floor(Math.random() * currentPlayer.scoreCards.length);
+        const targetIdx = Math.floor(Math.random() * partner.scoreCards.length);
+
+        const myCard = currentPlayer.scoreCards.splice(myCardIdx, 1)[0];
+        const targetCard = partner.scoreCards.splice(targetIdx, 1)[0];
+
+        currentPlayer.scoreCards.push(targetCard);
+        partner.scoreCards.push(myCard);
+
+        gameState.logs.push(`${currentPlayer.name} は ${partner.name} と得点カードを取引しました`);
+      } else {
+        gameState.logs.push('カードが不足しているため取引は不発でした');
       }
     } else if (usedCard.id === 'bribe') {
       // 賄賂：鉱山からボーナスで1枚引く
+      gameState.logs.push(`${currentPlayer.name} は賄賂を使い、鉱山から追加で1枚採掘しました！`);
       drawFromMine(currentPlayer, 1);
       if (gameState.decks.mineDeck.length === 0) { endGame(); return; }
-    } else if (usedCard.id === 'trade') {
-      // 取引：他プレイヤー1人と得点を1枚交換
-      const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id && p.scoreCards.length > 0);
-      if (otherPlayers.length > 0 && currentPlayer.scoreCards.length > 0) {
-        const target = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
-        const myIdx = Math.floor(Math.random() * currentPlayer.scoreCards.length);
-        const targetIdx = Math.floor(Math.random() * target.scoreCards.length);
-
-        const myCard = currentPlayer.scoreCards.splice(myIdx, 1)[0];
-        const targetCard = target.scoreCards.splice(targetIdx, 1)[0];
-
-        currentPlayer.scoreCards.push(targetCard);
-        target.scoreCards.push(myCard);
-        gameState.logs.push(`${currentPlayer.name} と ${target.name} でカードの取引が行われました`);
-      } else {
-        gameState.logs.push('取引の条件を満たせませんでした');
-      }
     }
 
-    broadcastState();
+    nextTurn();
   });
 
-  // 切断処理
   socket.on('disconnect', () => {
+    const leftPlayer = gameState.players.find(p => p.id === socket.id);
     gameState.players = gameState.players.filter(p => p.id !== socket.id);
+    if (leftPlayer) {
+      gameState.logs.push(`${leftPlayer.name} が退出しました`);
+    }
     if (gameState.players.length === 0) {
       gameState.isGameStarted = false;
-      gameState.decks = { actionDeck: [], mineDeck: [], eventDeck: [] };
-      gameState.discardActionDeck = [];
+    } else if (gameState.currentTurnIndex >= gameState.players.length) {
       gameState.currentTurnIndex = 0;
-      gameState.logs = [];
-    } else {
-      if (gameState.currentTurnIndex >= gameState.players.length) {
-        gameState.currentTurnIndex = 0;
-      }
     }
-    broadcastLobby();
     broadcastState();
   });
 });
 
+function endGame() {
+  gameState.logs.push('===================');
+  gameState.logs.push('鉱山がなくなりました！ゲーム終了！');
+
+  // 勝敗計算＆爆弾処理
+  let results = gameState.players.map(p => {
+    let hasBomb = p.scoreCards.some(c => c.type === 'bomb');
+    let cards = [...p.scoreCards];
+
+    // 爆弾所持の場合、爆弾以外の得点からランダム1枚廃棄
+    if (hasBomb) {
+      let nonBombIndices = [];
+      cards.forEach((c, idx) => { if (c.type !== 'bomb') nonBombIndices.push(idx); });
+      if (nonBombIndices.length > 0) {
+        let discardIdx = nonBombIndices[Math.floor(Math.random() * nonBombIndices.length)];
+        cards.splice(discardIdx, 1);
+      }
+    }
+
+    // 得点集計 (爆弾は0点扱い)
+    let score = cards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
+    return { name: p.name, score: score, hasBomb: hasBomb, originalCount: p.scoreCards.length };
+  });
+
+  // 最高得点者判定 (同点は全員勝利)
+  let maxScore = Math.max(...results.map(r => r.score), 0);
+  let winners = results.filter(r => r.score === maxScore).map(r => r.name);
+
+  gameState.logs.push(`勝者: ${winners.join(', ')} (得点: ${maxScore}点)`);
+  broadcastState({ gameOver: true, results: results, winners: winners, maxScore: maxScore });
+}
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`炭鉱夫サーバー起動完了: http://0.0.0.0:${PORT}`);
 });

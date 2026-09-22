@@ -212,23 +212,27 @@
     }
     
     .card {
-      min-width: 44px;
-      height: 52px;
+      min-width: 50px;
+      height: 58px;
       border-radius: 6px;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       font-weight: bold;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       border: 1px solid #ccc;
       cursor: pointer;
       flex-shrink: 0;
       box-shadow: 0 2px 5px rgba(0,0,0,0.3);
       transition: transform 0.1s;
+      padding: 2px;
+      text-align: center;
     }
     .card:active { transform: scale(0.95); }
-    .card-score { background: #fff; color: #111; }
+    .card-coal { background: linear-gradient(145deg, #3a3a3a, #1f1f1f); color: #ddd; border: 1px solid #666; }
+    .card-gold { background: linear-gradient(145deg, #ffd700, #d4af37); color: #222; border: 1.5px solid #fff; }
+    .card-diamond { background: linear-gradient(145deg, #b9f2ff, #70d6ff); color: #003049; border: 1.5px solid #fff; }
     .card-bomb { background: #ff4500; color: #fff; border: 2px solid #ffd700; animation: pulse 1.5s infinite; }
     .card-event { background: #2e8b57; color: #fff; border: 1px solid #4ade80; }
 
@@ -537,20 +541,26 @@
           <div class="rules-section-title">手番（ターン）でやること</div>
           <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動山札から1枚引く」</strong>を押します。</p>
           <div class="rule-item" style="margin-top:6px;">
-            <span class="rule-badge badge-blue">行動 1</span> 鉱山からカードを <strong>1枚</strong> 採掘して手札（非公開）へ
+            <span class="rule-badge badge-blue">つるはし</span> 鉱山からカードを <strong>1枚</strong> 採掘して手札（非公開）へ
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-blue">行動 2</span> 鉱山からカードを <strong>2枚</strong> 採掘して手札（非公開）へ
+            <span class="rule-badge badge-blue">ドリル</span> 鉱山からカードを <strong>2枚</strong> 採掘して手札（非公開）へ
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-green">行動 イベ</span> イベント山札から <strong>イベントカードを1枚</strong> 獲得
+            <span class="rule-badge badge-green">イベント</span> イベント山札から <strong>イベントカードを1枚</strong> 獲得
           </div>
         </div>
 
         <div>
           <div class="rules-section-title">鉱山カード（全21枚）</div>
           <div class="rule-item">
-            <span class="rule-badge badge-gold">得点カード</span> 1点（10枚）、2点（7枚）、3点（3枚）
+            <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 10枚
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-gold">金 (2点)</span> 7枚
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 3枚
           </div>
           <div class="rule-item">
             <span class="rule-badge badge-red">💥 爆弾 (1枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
@@ -676,6 +686,7 @@
 
     // ゲーム状態受信
     socket.on('state_update', (state) => {
+      // ロビー表示更新
       if (state.allPlayerNames) {
         updateLobby(state.allPlayerNames);
       }
@@ -725,10 +736,25 @@
       if (state.myHand.scoreCards.length > 0) {
         state.myHand.scoreCards.forEach(c => {
           const card = document.createElement('div');
-          card.className = `card ${c.type === 'bomb' ? 'card-bomb' : 'card-score'}`;
-          card.innerText = c.type === 'bomb' ? '爆弾' : `${c.value}点`;
-          if (c.type === 'score' && typeof c.value === 'number') {
-            totalPts += c.value;
+          if (c.type === 'bomb') {
+            card.className = 'card card-bomb';
+            card.innerHTML = '<span style="font-size:0.9rem;">💥</span><span style="font-size:0.68rem; font-weight:800;">爆弾</span>';
+          } else if (c.value === 1 || c.name === '石炭') {
+            card.className = 'card card-coal';
+            card.innerHTML = '<span style="font-size:0.75rem; font-weight:bold;">石炭</span><span style="font-size:0.65rem; color:#bbb;">1点</span>';
+            totalPts += 1;
+          } else if (c.value === 2 || c.name === '金') {
+            card.className = 'card card-gold';
+            card.innerHTML = '<span style="font-size:0.75rem; font-weight:800;">金</span><span style="font-size:0.65rem; color:#444;">2点</span>';
+            totalPts += 2;
+          } else if (c.value === 3 || c.name === 'ダイヤ') {
+            card.className = 'card card-diamond';
+            card.innerHTML = '<span style="font-size:0.75rem; font-weight:800;">ダイヤ</span><span style="font-size:0.65rem; color:#005080;">3点</span>';
+            totalPts += 3;
+          } else {
+            card.className = 'card card-coal';
+            card.innerText = `${c.name || '得点'} (${c.value}点)`;
+            totalPts += Number(c.value) || 0;
           }
           scoreBox.appendChild(card);
         });
@@ -791,7 +817,7 @@
 
     // 調査イベントの鉱山中身表示
     socket.on('show_mine_cards', (mineCards) => {
-      const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c === '爆弾' ? '💥爆弾' : c + '点'}`).join('\n');
+      const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c}`).join('\n');
       showModal('【調査完了】鉱山の中身', formatted || '鉱山は空です');
     });
 

@@ -47,7 +47,7 @@ function initializeDecks() {
   let eventList = [
     { id: 'survey', name: '調査' }, { id: 'survey', name: '調査' },
     { id: 'bribe', name: '賄賂' },
-    { id: 'mine', name: '採掘' }, { id: 'mine', name: '採掘' },
+    { id: 'blast', name: '爆破' }, { id: 'blast', name: '爆破' },
     { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' },
     { id: 'share', name: '山分け' },
     { id: 'reveal', name: '公開' }, { id: 'reveal', name: '公開' },
@@ -232,10 +232,35 @@ io.on('connection', (socket) => {
         c.type === 'bomb' ? '💥爆弾' : `${c.name} (${c.value}点)`
       );
       socket.emit('show_mine_cards', mineContent);
-    } else if (usedCard.id === 'mine') {
-      // 採掘：鉱山から1枚引く
-      drawFromMine(currentPlayer, 1);
-      if (gameState.decks.mineDeck.length === 0) { endGame(); return; }
+    } else if (usedCard.id === 'blast') {
+      // 爆破：爆弾カードを持つプレイヤーは爆弾とランダムに選ばれた得点カード1枚を鉱山に戻しシャッフルする。誰も爆弾を持っていなければ不発となりターンは終わる。
+      const bombPlayer = gameState.players.find(p => p.scoreCards.some(c => c.type === 'bomb'));
+      if (bombPlayer) {
+        // 爆弾を取り除く
+        const bIdx = bombPlayer.scoreCards.findIndex(c => c.type === 'bomb');
+        const bombCard = bombPlayer.scoreCards.splice(bIdx, 1)[0];
+        gameState.decks.mineDeck.push(bombCard);
+
+        // 得点カードからランダムに1枚取り除く
+        const scoreIndices = [];
+        bombPlayer.scoreCards.forEach((c, idx) => {
+          if (c.type === 'score') scoreIndices.push(idx);
+        });
+
+        let returnedScoreText = '得点なし';
+        if (scoreIndices.length > 0) {
+          const randIdx = scoreIndices[Math.floor(Math.random() * scoreIndices.length)];
+          const returnedScore = bombPlayer.scoreCards.splice(randIdx, 1)[0];
+          gameState.decks.mineDeck.push(returnedScore);
+          returnedScoreText = `${returnedScore.name} (${returnedScore.value}点)`;
+        }
+
+        // 鉱山山札をシャッフル
+        gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
+        gameState.logs.push(`💣【爆破】発動！ ${bombPlayer.name} は爆弾と【${returnedScoreText}】を鉱山に戻してシャッフルしました！`);
+      } else {
+        gameState.logs.push('誰も爆弾を持っていなかったため【爆破】は不発となりました');
+      }
     } else if (usedCard.id === 'share') {
       // 山分け：全プレイヤーが得点を持っていれば実行
       const allHave = gameState.players.every(p => p.scoreCards.length > 0);
@@ -293,12 +318,12 @@ io.on('connection', (socket) => {
       if (currentPlayer.scoreCards.length > 0 && otherPlayersWithCards.length > 0) {
         const partner = otherPlayersWithCards[Math.floor(Math.random() * otherPlayersWithCards.length)];
         const myCardIdx = Math.floor(Math.random() * currentPlayer.scoreCards.length);
-        const targetIdx = Math.floor(Math.random() * partner.scoreCards.length);
+        const partnerCardIdx = Math.floor(Math.random() * partner.scoreCards.length);
 
         const myCard = currentPlayer.scoreCards.splice(myCardIdx, 1)[0];
-        const targetCard = partner.scoreCards.splice(targetIdx, 1)[0];
+        const partnerCard = partner.scoreCards.splice(partnerCardIdx, 1)[0];
 
-        currentPlayer.scoreCards.push(targetCard);
+        currentPlayer.scoreCards.push(partnerCard);
         partner.scoreCards.push(myCard);
 
         gameState.logs.push(`${currentPlayer.name} は ${partner.name} と得点カードを取引しました`);
@@ -306,10 +331,32 @@ io.on('connection', (socket) => {
         gameState.logs.push('カードが不足しているため取引は不発でした');
       }
     } else if (usedCard.id === 'bribe') {
-      // 賄賂：鉱山からボーナスで1枚引く
-      gameState.logs.push(`${currentPlayer.name} は賄賂を使い、鉱山から追加で1枚採掘しました！`);
-      drawFromMine(currentPlayer, 1);
-      if (gameState.decks.mineDeck.length === 0) { endGame(); return; }
+      // 賄賂：自分の得点のカードの一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引く。
+      let minVal = Infinity;
+      let minIdx = -1;
+      currentPlayer.scoreCards.forEach((c, idx) => {
+        if (c.type === 'score' && typeof c.value === 'number' && c.value < minVal) {
+          minVal = c.value;
+          minIdx = idx;
+        }
+      });
+
+      if (minIdx !== -1) {
+        const returnedCard = currentPlayer.scoreCards.splice(minIdx, 1)[0];
+        gameState.decks.mineDeck.push(returnedCard);
+        gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
+
+        let drawnCount = 0;
+        for (let i = 0; i < 2; i++) {
+          if (gameState.decks.eventDeck.length > 0) {
+            currentPlayer.eventCards.push(gameState.decks.eventDeck.pop());
+            drawnCount++;
+          }
+        }
+        gameState.logs.push(`${currentPlayer.name} は賄賂を使い、【${returnedCard.name} (${returnedCard.value}点)】を鉱山に戻してイベントカードを${drawnCount}枚引きました！`);
+      } else {
+        gameState.logs.push(`${currentPlayer.name} は賄賂を使おうとしましたが、戻せる得点カードが無いため不発となりました`);
+      }
     }
 
     nextTurn();

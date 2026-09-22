@@ -329,6 +329,109 @@
       border-radius: 6px;
       font-size: 0.85rem;
     }
+
+    /* ルール説明モーダル */
+    .rules-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 220;
+      padding: 16px;
+    }
+    .rules-card {
+      background: #222;
+      border: 1px solid #555;
+      border-radius: 12px;
+      padding: 18px;
+      width: 100%;
+      max-width: 380px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    }
+    .rules-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #444;
+      padding-bottom: 8px;
+    }
+    .rules-title { font-size: 1.15rem; font-weight: bold; color: #ffd700; }
+    .rules-close {
+      background: none;
+      border: none;
+      color: #aaa;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .rules-content {
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 0.82rem;
+      color: #ccc;
+      line-height: 1.5;
+      padding-right: 4px;
+    }
+    .rules-section-title {
+      font-weight: bold;
+      color: #fff;
+      font-size: 0.88rem;
+      border-left: 3px solid #1e90ff;
+      padding-left: 6px;
+      margin-bottom: 4px;
+    }
+    .rule-item {
+      background: #2c2c2c;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 4px;
+    }
+    .rule-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: bold;
+      margin-right: 4px;
+    }
+    .badge-blue { background: #1e90ff; color: #fff; }
+    .badge-red { background: #a11; color: #fff; }
+    .badge-green { background: #2e8b57; color: #fff; }
+    .badge-gold { background: #ffd700; color: #111; }
+
+    /* ルールを開くボタン */
+    .btn-rules-lobby {
+      background: #333;
+      color: #ffd700;
+      border: 1px solid #555;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: bold;
+      cursor: pointer;
+      width: 100%;
+    }
+    .btn-rules-ingame {
+      background: rgba(40,40,40,0.85);
+      border: 1px solid #555;
+      color: #ffd700;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
   </style>
 </head>
 <body>
@@ -341,6 +444,7 @@
       <input type="text" id="playerNameInput" placeholder="プレイヤー名を入力" maxlength="10" />
       <button id="joinBtn" class="btn-join">ゲームに参加する</button>
       <button id="startBtn" class="btn-start" style="display:none;">ゲームを開始する</button>
+      <button id="lobbyRulesBtn" class="btn-rules-lobby" type="button">📖 ルール・カード一覧</button>
     </div>
 
     <!-- 参加中プレイヤー表示 -->
@@ -353,6 +457,12 @@
         <span style="font-size:0.75rem; color:#666;">誰も入室していません</span>
       </div>
     </div>
+  </div>
+
+  <!-- 対戦画面ヘッダー（ゲーム中のルールボタン） -->
+  <div style="display:flex; justify-content:space-between; align-items:center; padding:0 2px 4px 2px;">
+    <span style="font-size:0.85rem; font-weight:bold; color:#ffd700;">炭鉱夫 Online</span>
+    <button id="ingameRulesBtn" class="btn-rules-ingame" type="button">📖 ルール</button>
   </div>
 
   <!-- 対戦画面 (画面上部: 対戦相手) -->
@@ -410,6 +520,63 @@
     </div>
   </div>
 
+  <!-- ルール説明モーダル -->
+  <div id="rulesModal" class="rules-backdrop">
+    <div class="rules-card">
+      <div class="rules-header">
+        <span class="rules-title">📖 炭鉱夫のルール説明</span>
+        <button id="rulesCloseBtn" class="rules-close" type="button">✕</button>
+      </div>
+      <div class="rules-content">
+        <div>
+          <div class="rules-section-title">ゲームの目的</div>
+          <p>鉱山から鉱石（得点カード）を掘り出し、最も高いスコアを獲得したプレイヤーが勝利です！</p>
+        </div>
+
+        <div>
+          <div class="rules-section-title">手番（ターン）でやること</div>
+          <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動山札から1枚引く」</strong>を押します。</p>
+          <div class="rule-item" style="margin-top:6px;">
+            <span class="rule-badge badge-blue">行動 1</span> 鉱山からカードを <strong>1枚</strong> 採掘して手札（非公開）へ
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-blue">行動 2</span> 鉱山からカードを <strong>2枚</strong> 採掘して手札（非公開）へ
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-green">行動 イベ</span> イベント山札から <strong>イベントカードを1枚</strong> 獲得
+          </div>
+        </div>
+
+        <div>
+          <div class="rules-section-title">鉱山カード（全21枚）</div>
+          <div class="rule-item">
+            <span class="rule-badge badge-gold">得点カード</span> 1点（10枚）、2点（7枚）、3点（3枚）
+          </div>
+          <div class="rule-item">
+            <span class="rule-badge badge-red">💥 爆弾 (1枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
+          </div>
+        </div>
+
+        <div>
+          <div class="rules-section-title">イベントカード（自分のターンに自由に使用）</div>
+          <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。</p>
+          <div class="rule-item"><strong>🔍 調査</strong>: 鉱山山札に残っているカードの順序を自分だけ確認</div>
+          <div class="rule-item"><strong>⛏️ 採掘</strong>: 即座に鉱山から1枚採掘する</div>
+          <div class="rule-item"><strong>💰 賄賂</strong>: 鉱山から追加ボーナスで1枚採掘する</div>
+          <div class="rule-item"><strong>🤝 山分け</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
+          <div class="rule-item"><strong>👁️ 公開</strong>: ランダムなプレイヤー1人の手札得点を全員に公開</div>
+          <div class="rule-item"><strong>🦹 強奪</strong>: 最も得点カードを多く持つ相手から1枚奪う</div>
+          <div class="rule-item"><strong>🔄 取引</strong>: 他のプレイヤー1人と得点カードをランダムに1枚交換</div>
+        </div>
+
+        <div>
+          <div class="rules-section-title">ゲーム終了と勝敗</div>
+          <p><strong>鉱山山札が0枚になった瞬間</strong>にゲーム終了！<br>爆弾を持っている人の得点が破壊された後、最終得点の合計が最も高いプレイヤーが勝者となります。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     // Socket.io初期化
     const socket = io();
@@ -424,6 +591,25 @@
     const lobbyPlayerList = document.getElementById('lobbyPlayerList');
     const myTurnBadge = document.getElementById('myTurnBadge');
     const myTotalScorePreview = document.getElementById('myTotalScorePreview');
+
+    // ルールモーダル制御
+    const rulesModal = document.getElementById('rulesModal');
+    const lobbyRulesBtn = document.getElementById('lobbyRulesBtn');
+    const ingameRulesBtn = document.getElementById('ingameRulesBtn');
+    const rulesCloseBtn = document.getElementById('rulesCloseBtn');
+
+    function openRules() {
+      rulesModal.style.display = 'flex';
+    }
+    function closeRules() {
+      rulesModal.style.display = 'none';
+    }
+    lobbyRulesBtn.addEventListener('click', openRules);
+    ingameRulesBtn.addEventListener('click', openRules);
+    rulesCloseBtn.addEventListener('click', closeRules);
+    rulesModal.addEventListener('click', (e) => {
+      if (e.target === rulesModal) closeRules();
+    });
 
     // ダイアログヘルパー
     const customDialog = document.getElementById('customDialog');
@@ -490,7 +676,6 @@
 
     // ゲーム状態受信
     socket.on('state_update', (state) => {
-      // ロビー表示更新
       if (state.allPlayerNames) {
         updateLobby(state.allPlayerNames);
       }

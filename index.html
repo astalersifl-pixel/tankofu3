@@ -148,6 +148,116 @@
       transform: scale(0.96);
     }
 
+    /* サウンド切り替えボタン */
+    .btn-sound-toggle {
+      background: #242424;
+      border: 1px solid #666;
+      color: #ffd700;
+      font-size: 0.76rem;
+      font-weight: bold;
+      padding: 5px 9px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-sound-toggle.muted {
+      color: #888;
+      border-color: #444;
+      background: #1a1a1a;
+    }
+
+    /* アニメーション用キーフレーム */
+    @keyframes deckBounce {
+      0% { transform: scale(1); }
+      35% { transform: scale(0.9) translateY(3px); }
+      70% { transform: scale(1.1) translateY(-5px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    .deck-bounce {
+      animation: deckBounce 0.35s ease-out;
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.65); opacity: 0; }
+      70% { transform: scale(1.08); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in {
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes screenShake {
+      0%, 100% { transform: translate(0, 0); }
+      20% { transform: translate(-5px, 3px); }
+      40% { transform: translate(5px, -3px); }
+      60% { transform: translate(-4px, -2px); }
+      80% { transform: translate(4px, 2px); }
+    }
+    .shake {
+      animation: screenShake 0.4s ease-in-out;
+    }
+
+    /* 採掘ポップアップフローティングトースト */
+    .toast-container {
+      position: fixed;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 150;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .toast-item {
+      background: rgba(18, 18, 18, 0.94);
+      border: 2px solid #ffd700;
+      color: #ffd700;
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 1.05rem;
+      font-weight: 900;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8), 0 0 15px rgba(255,215,0,0.4);
+      animation: floatToast 1.25s ease-out forwards;
+      white-space: nowrap;
+    }
+    .toast-item.bomb {
+      border-color: #ff4500;
+      color: #ff4500;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8), 0 0 20px rgba(255,69,0,0.6);
+    }
+    .toast-item.diamond {
+      border-color: #70d6ff;
+      color: #b9f2ff;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.8), 0 0 18px rgba(112,214,255,0.6);
+    }
+    @keyframes floatToast {
+      0% { opacity: 0; transform: translateY(20px) scale(0.75); }
+      18% { opacity: 1; transform: translateY(0) scale(1.12); }
+      35% { transform: translateY(-4px) scale(1); }
+      75% { opacity: 1; transform: translateY(-10px); }
+      100% { opacity: 0; transform: translateY(-32px) scale(0.9); }
+    }
+
+    /* ターン中ボタンのシマーパルス */
+    @keyframes turnPulse {
+      0%, 100% {
+        box-shadow: 0 0 0 0 rgba(30, 144, 255, 0.5);
+      }
+      50% {
+        box-shadow: 0 0 16px 5px rgba(30, 144, 255, 0.9);
+      }
+    }
+    .btn-my-turn {
+      animation: turnPulse 1.6s infinite !important;
+      background: linear-gradient(135deg, #1e90ff, #00bfff) !important;
+    }
+
     /* 対戦相手エリア */
     .opponents-area {
       display: flex;
@@ -536,10 +646,13 @@
     </div>
   </div>
 
-  <!-- 対戦画面ヘッダー（ゲームタイトルとルールボタン） -->
+  <!-- 対戦画面ヘッダー（ゲームタイトル、サウンド切替、ルールボタン） -->
   <div class="top-header-bar">
     <span class="top-header-title">⛏️ 炭鉱夫 Online</span>
-    <button id="ingameRulesBtn" class="btn-rules-ingame" type="button">📖 ルール確認</button>
+    <div style="display:flex; align-items:center; gap:6px;">
+      <button id="soundToggleBtn" class="btn-sound-toggle" type="button" title="サウンド切り替え">🔊 ON</button>
+      <button id="ingameRulesBtn" class="btn-rules-ingame" type="button">📖 ルール確認</button>
+    </div>
   </div>
 
   <!-- 対戦画面 (画面上部: 対戦相手) -->
@@ -551,11 +664,14 @@
   <div class="field-area">
     <div class="game-log" id="logBox">ゲーム開始を待っています...</div>
     <div class="decks-container">
-      <div class="deck deck-mine">鉱山<span class="deck-count" id="mineCount">21</span></div>
-      <div class="deck deck-action">行動<span class="deck-count" id="actionCount">20</span></div>
-      <div class="deck deck-event">イベント<span class="deck-count" id="eventCount">12</span></div>
+      <div class="deck deck-mine" id="deckMine">鉱山<span class="deck-count" id="mineCount">21</span></div>
+      <div class="deck deck-action" id="deckAction">行動<span class="deck-count" id="actionCount">20</span></div>
+      <div class="deck deck-event" id="deckEvent">イベント<span class="deck-count" id="eventCount">12</span></div>
     </div>
   </div>
+
+  <!-- ポップアップ演出コンテナ -->
+  <div id="toastContainer" class="toast-container"></div>
 
   <!-- 自分のエリア (画面下部) -->
   <div class="my-area">
@@ -661,6 +777,253 @@
   </div>
 
   <script>
+    // Web Audio API サウンドマネージャー
+    class SoundEffectManager {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      toggle() {
+        this.enabled = !this.enabled;
+        return this.enabled;
+      }
+
+      // 1. ドロー音（シュッ）
+      playDraw() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.12);
+        } catch (e) {}
+      }
+
+      // 2. つるはし採掘音（カンッ！）
+      playPick() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(1300, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(550, this.ctx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.16);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.16);
+        } catch (e) {}
+      }
+
+      // 3. ドリル採掘音（ガガガッ＋カンッ）
+      playDrill() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          [0, 0.06, 0.13].forEach((delay, idx) => {
+            setTimeout(() => {
+              if (!this.ctx || !this.enabled) return;
+              const osc = this.ctx.createOscillator();
+              const gain = this.ctx.createGain();
+              osc.type = idx === 2 ? 'sine' : 'sawtooth';
+              osc.frequency.setValueAtTime(idx === 2 ? 1400 : 380 + idx * 90, this.ctx.currentTime);
+              gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+              osc.connect(gain);
+              gain.connect(this.ctx.destination);
+              osc.start();
+              osc.stop(this.ctx.currentTime + 0.08);
+            }, delay * 1000);
+          });
+        } catch (e) {}
+      }
+
+      // 4. 金・ダイヤ獲得（キラリーン♪）
+      playGold() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            const startTime = this.ctx.currentTime + idx * 0.055;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.25, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.22);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + 0.22);
+          });
+        } catch (e) {}
+      }
+
+      // 5. 爆弾・爆破（ドカーン衝撃音）
+      playBomb() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const bufferSize = this.ctx.sampleRate * 0.45;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(320, this.ctx.currentTime);
+          filter.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.45);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.45);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          noise.start();
+          noise.stop(this.ctx.currentTime + 0.45);
+        } catch (e) {}
+      }
+
+      // 6. イベント使用・獲得（ピロリロリン上昇音）
+      playEvent() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const notes = [440, 554.37, 659.25, 880];
+          notes.forEach((freq, idx) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            const startTime = this.ctx.currentTime + idx * 0.05;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.22, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.18);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + 0.18);
+          });
+        } catch (e) {}
+      }
+
+      // 7. 自分のターン通知（ピコーン！）
+      playMyTurn() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(587.33, this.ctx.currentTime); // D5
+          osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.16); // A5
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.28);
+        } catch (e) {}
+      }
+
+      // 8. 勝利ファンファーレ（リザルト時）
+      playVictory() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const melody = [
+            { f: 523.25, d: 0.12 }, // C
+            { f: 659.25, d: 0.12 }, // E
+            { f: 783.99, d: 0.12 }, // G
+            { f: 1046.50, d: 0.35 } // C6
+          ];
+          let time = this.ctx.currentTime;
+          melody.forEach((note) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(note.f, time);
+            gain.gain.setValueAtTime(0.32, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + note.d);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(time);
+            osc.stop(time + note.d);
+            time += note.d * 0.95;
+          });
+        } catch (e) {}
+      }
+    }
+
+    const soundManager = new SoundEffectManager();
+
+    // 演出ヘルパー
+    const toastContainer = document.getElementById('toastContainer');
+    function showToast(text, type = '') {
+      if (!toastContainer) return;
+      const toast = document.createElement('div');
+      toast.className = `toast-item ${type}`;
+      toast.innerText = text;
+      toastContainer.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 1300);
+    }
+
+    function triggerDeckBounce(deckId) {
+      const el = document.getElementById(deckId);
+      if (el) {
+        el.classList.remove('deck-bounce');
+        void el.offsetWidth; // リフロー
+        el.classList.add('deck-bounce');
+      }
+    }
+
+    function triggerScreenShake() {
+      document.body.classList.remove('shake');
+      void document.body.offsetWidth;
+      document.body.classList.add('shake');
+      setTimeout(() => document.body.classList.remove('shake'), 450);
+    }
+
     // Socket.io初期化
     const socket = io();
 
@@ -674,6 +1037,26 @@
     const lobbyPlayerList = document.getElementById('lobbyPlayerList');
     const myTurnBadge = document.getElementById('myTurnBadge');
     const myTotalScorePreview = document.getElementById('myTotalScorePreview');
+    const soundToggleBtn = document.getElementById('soundToggleBtn');
+
+    // サウンドON/OFF切り替え
+    soundToggleBtn.addEventListener('click', () => {
+      soundManager.init();
+      const isEnabled = soundManager.toggle();
+      if (isEnabled) {
+        soundToggleBtn.innerHTML = '🔊 ON';
+        soundToggleBtn.classList.remove('muted');
+        soundManager.playPick();
+      } else {
+        soundToggleBtn.innerHTML = '🔇 OFF';
+        soundToggleBtn.classList.add('muted');
+      }
+    });
+
+    // ユーザー操作でAudioContextをアンロック
+    document.addEventListener('click', () => {
+      soundManager.init();
+    }, { once: true });
 
     // ルールモーダル制御
     const rulesModal = document.getElementById('rulesModal');
@@ -683,6 +1066,7 @@
 
     function openRules() {
       rulesModal.style.display = 'flex';
+      soundManager.playDraw();
     }
     function closeRules() {
       rulesModal.style.display = 'none';
@@ -715,12 +1099,15 @@
     const restartBtn = document.getElementById('restartBtn');
 
     restartBtn.addEventListener('click', () => {
+      soundManager.playDraw();
       socket.emit('restart_game');
       resultModal.style.display = 'none';
     });
 
     // 入室・開始ボタン
     joinBtn.addEventListener('click', () => {
+      soundManager.init();
+      soundManager.playDraw();
       const name = playerNameInput.value.trim() || `プレイヤー${Math.floor(Math.random() * 900 + 100)}`;
       socket.emit('join_game', name);
       joinBtn.style.display = 'none';
@@ -729,10 +1116,13 @@
     });
 
     startBtn.addEventListener('click', () => {
+      soundManager.playGold();
       socket.emit('start_game');
     });
 
     drawBtn.addEventListener('click', () => {
+      soundManager.playDraw();
+      triggerDeckBounce('deckAction');
       socket.emit('draw_action_deck');
     });
 
@@ -757,6 +1147,17 @@
       });
     }
 
+    // 前回の状態キャッシュ（演出判定用）
+    let lastStateCache = {
+      isMyTurn: false,
+      scoreCardCount: 0,
+      diamondCount: 0,
+      goldCount: 0,
+      bombCount: 0,
+      lastLog: '',
+      isGameOver: false
+    };
+
     // ゲーム状態受信
     socket.on('state_update', (state) => {
       // ロビー表示更新
@@ -775,9 +1176,34 @@
       document.getElementById('actionCount').innerText = state.deckCounts.action;
       document.getElementById('eventCount').innerText = state.deckCounts.event;
 
-      // ログ
-      if (state.logs && state.logs.length > 0) {
-        logBox.innerText = state.logs[state.logs.length - 1];
+      // 最新ログと演出判定
+      const currentLog = (state.logs && state.logs.length > 0) ? state.logs[state.logs.length - 1] : '';
+      if (currentLog) {
+        logBox.innerText = currentLog;
+
+        // ログが変わったときの音響＆トースト演出
+        if (currentLog !== lastStateCache.lastLog && state.isGameStarted) {
+          if (currentLog.includes('つるはし')) {
+            soundManager.playPick();
+            triggerDeckBounce('deckMine');
+            showToast('⛏️ つるはし！ 1枚採掘');
+          } else if (currentLog.includes('ドリル')) {
+            soundManager.playDrill();
+            triggerDeckBounce('deckMine');
+            showToast('⚡ ドリル！ 2枚採掘');
+          } else if (currentLog.includes('イベント【爆破】') || currentLog.includes('【爆破】発動')) {
+            soundManager.playBomb();
+            triggerScreenShake();
+            showToast('💣 爆破発動！ 鉱山へシャッフル！', 'bomb');
+          } else if (currentLog.includes('イベント【賄賂】') || currentLog.includes('賄賂を使い')) {
+            soundManager.playEvent();
+            showToast('💰 賄賂！ イベント2枚獲得');
+          } else if (currentLog.includes('イベント')) {
+            soundManager.playEvent();
+            triggerDeckBounce('deckEvent');
+            showToast('✨ イベント獲得！');
+          }
+        }
       }
 
       // 他プレイヤー状況
@@ -786,7 +1212,7 @@
       if (state.opponents && state.opponents.length > 0) {
         state.opponents.forEach(opp => {
           const div = document.createElement('div');
-          div.className = `opponent-card ${opp.isCurrentTurn ? 'active' : ''}`;
+          div.className = `opponent-card ${opp.isCurrentTurn ? 'active pop-in' : ''}`;
           div.innerHTML = `
             <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; max-width:140px; white-space:nowrap;">
               ${opp.name} ${opp.isCurrentTurn ? '◀ ターン中' : ''}
@@ -836,6 +1262,21 @@
           }
         });
 
+        // 自分のカード増加検出（ダイヤ・金・爆弾の獲得演出）
+        if (state.isGameStarted) {
+          if (counts.diamond.count > lastStateCache.diamondCount) {
+            soundManager.playGold();
+            showToast('💎 ダイヤ (3点) 獲得！', 'diamond');
+          } else if (counts.gold.count > lastStateCache.goldCount) {
+            soundManager.playGold();
+            showToast('✨ 金 (2点) 獲得！');
+          } else if (counts.bomb.count > lastStateCache.bombCount) {
+            soundManager.playBomb();
+            triggerScreenShake();
+            showToast('💥 爆弾を入手！ 危険！', 'bomb');
+          }
+        }
+
         // 石炭・金・ダイヤ・爆弾の順で、持っているカードを表示
         const ordered = [counts.coal, counts.gold, counts.diamond, counts.bomb];
         let hasRendered = false;
@@ -844,7 +1285,7 @@
           if (item.count > 0) {
             hasRendered = true;
             const card = document.createElement('div');
-            card.className = `card-stack ${item.cssClass}`;
+            card.className = `card-stack pop-in ${item.cssClass}`;
 
             if (item === counts.bomb) {
               card.innerHTML = `
@@ -881,10 +1322,13 @@
       if (state.myHand.eventCards.length > 0) {
         state.myHand.eventCards.forEach((c, idx) => {
           const card = document.createElement('div');
-          card.className = 'card card-event';
+          card.className = 'card card-event pop-in';
           card.innerText = c.name;
           if (state.isMyTurn) {
-            card.onclick = () => socket.emit('use_event', idx);
+            card.onclick = () => {
+              soundManager.playEvent();
+              socket.emit('use_event', idx);
+            };
             card.title = 'タップして使用';
           } else {
             card.style.opacity = '0.5';
@@ -896,15 +1340,34 @@
         eventBox.innerHTML = '<div style="font-size:0.75rem; color:#555;">イベントなし</div>';
       }
 
-      // ターン制御ボタンとバッジ
+      // ターン制御ボタンとバッジ & 自分のターン通知音
       drawBtn.disabled = !state.isMyTurn;
       if (state.isMyTurn) {
         myTurnBadge.innerText = '★ あなたのターンです！';
         myTurnBadge.style.color = '#ffd700';
+        drawBtn.classList.add('btn-my-turn');
+
+        // ターンが自分に移った瞬間に通知音
+        if (!lastStateCache.isMyTurn && state.isGameStarted) {
+          soundManager.playMyTurn();
+          showToast('🔔 あなたのターンです！');
+        }
       } else {
         myTurnBadge.innerText = '相手のターン中';
         myTurnBadge.style.color = '#888';
+        drawBtn.classList.remove('btn-my-turn');
       }
+
+      // キャッシュ更新
+      lastStateCache = {
+        isMyTurn: state.isMyTurn,
+        scoreCardCount: totalCardCount,
+        diamondCount: counts.diamond.count,
+        goldCount: counts.gold.count,
+        bombCount: counts.bomb.count,
+        lastLog: currentLog,
+        isGameOver: !!(state.extraData && state.extraData.gameOver)
+      };
 
       // ゲーム終了・リザルト判定
       if (state.extraData && state.extraData.gameOver) {
@@ -913,11 +1376,12 @@
     });
 
     function showResults(data) {
-      resultWinner.innerText = `勝者: ${data.winners.join(', ')} (${data.maxScore}点)`;
+      soundManager.playVictory();
+      resultWinner.innerText = `🏆 勝者: ${data.winners.join(', ')} (${data.maxScore}点)`;
       resultRows.innerHTML = '';
       data.results.forEach(r => {
         const row = document.createElement('div');
-        row.className = 'result-row';
+        row.className = 'result-row pop-in';
         row.innerHTML = `
           <span style="font-weight:bold;">${r.name} ${r.hasBomb ? '💥(爆弾被弾)' : ''}</span>
           <span style="color:#ffd700; font-weight:bold; font-size:1rem;">${r.score} 点</span>
@@ -929,6 +1393,7 @@
 
     // 調査イベントの鉱山中身表示
     socket.on('show_mine_cards', (mineCards) => {
+      soundManager.playEvent();
       const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c}`).join('\n');
       showModal('【調査完了】鉱山の中身', formatted || '鉱山は空です');
     });

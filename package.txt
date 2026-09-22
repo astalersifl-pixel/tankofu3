@@ -1,0 +1,13 @@
+{
+  "name": "tankofu-game",
+  "version": "1.0.0",
+  "description": "炭鉱夫 (Tankofu) - Online Card Game Server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.3"
+  }
+}

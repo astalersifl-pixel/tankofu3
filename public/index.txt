@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>炭鉱夫 (Tankofu)</title>
+  <meta name="description" content="オンライン対戦カードゲーム「炭鉱夫 (Tankofu)」。行動カードと鉱山カード、多彩なイベントカードで鉱石を採掘・駆け引きするマルチプレイゲーム。" />
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #242424;
+      color: #fff;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      padding-top: max(45px, env(safe-area-inset-top));
+      padding-bottom: max(20px, env(safe-area-inset-bottom));
+      padding-left: max(12px, env(safe-area-inset-left));
+      padding-right: max(12px, env(safe-area-inset-right));
+    }
+    
+    /* 入室・待機画面 */
+    .join-screen {
+      position: fixed;
+      inset: 0;
+      background: #181818;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      z-index: 100;
+      padding: 24px;
+    }
+    .join-title {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: #ffd700;
+      text-shadow: 0 2px 8px rgba(255,215,0,0.3);
+    }
+    .join-subtitle {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: -8px;
+    }
+    .join-box {
+      width: 100%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .join-box input {
+      padding: 12px;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: 1px solid #444;
+      background: #2a2a2a;
+      color: #fff;
+      text-align: center;
+      outline: none;
+    }
+    .join-box input:focus {
+      border-color: #1e90ff;
+    }
+    .join-box button {
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-join { background: #1e90ff; color: #fff; }
+    .btn-start { background: #2e8b57; color: #fff; }
+    .join-box button:active { opacity: 0.85; }
+
+    .lobby-players {
+      width: 100%;
+      max-width: 320px;
+      background: #222;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .lobby-players-title {
+      font-size: 0.75rem;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+    }
+    .lobby-player-tag {
+      font-size: 0.85rem;
+      background: #333;
+      padding: 5px 10px;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    /* 対戦相手エリア */
+    .opponents-area {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #1a1a1a;
+      padding: 8px 10px;
+      border: 1px solid #333;
+      border-radius: 8px;
+      max-height: 125px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      flex-shrink: 0;
+    }
+    .opponent-card {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 6px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+    }
+    .opponent-card.active {
+      border: 2px solid #ffd700;
+      background: #3a3215;
+    }
+    
+    /* 中央フィールドエリア */
+    .field-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 8px 0;
+      flex: 1;
+    }
+    
+    /* 山札エリア */
+    .decks-container {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+    .deck {
+      width: 60px;
+      height: 75px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      border: 1.5px solid rgba(255,255,255,0.7);
+      font-size: 0.7rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+    .deck-mine { background: linear-gradient(145deg, #a11, #6a0000); }
+    .deck-action { background: linear-gradient(145deg, #2596be, #13557e); }
+    .deck-event { background: linear-gradient(145deg, #3aa369, #1c5e3a); }
+    .deck-count { font-size: 1.05rem; margin-top: 4px; font-weight: 800; }
+
+    .game-log {
+      font-size: 0.8rem;
+      color: #ffd700;
+      background: rgba(0,0,0,0.7);
+      padding: 6px 12px;
+      border-radius: 8px;
+      max-width: 95%;
+      text-align: center;
+      border: 1px solid #333;
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 自分の手札エリア */
+    .my-area {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .section-label {
+      font-size: 0.7rem;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+    }
+    .cards-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+      min-height: 52px;
+      align-items: center;
+    }
+    
+    .card {
+      min-width: 44px;
+      height: 52px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      font-size: 0.7rem;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      flex-shrink: 0;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: transform 0.1s;
+    }
+    .card:active { transform: scale(0.95); }
+    .card-score { background: #fff; color: #111; }
+    .card-bomb { background: #ff4500; color: #fff; border: 2px solid #ffd700; animation: pulse 1.5s infinite; }
+    .card-event { background: #2e8b57; color: #fff; border: 1px solid #4ade80; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 69, 0, 0.4); }
+      50% { box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.6); }
+    }
+
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: bold;
+      color: #fff;
+      background: #1e90ff;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.2s;
+    }
+    .btn:disabled { background: #444; color: #777; cursor: not-allowed; }
+    .btn:not(:disabled):active { background: #187bcd; }
+
+    /* ダイアログ（alert代替モーダル） */
+    .dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 200;
+      padding: 20px;
+    }
+    .dialog-card {
+      background: #242424;
+      border: 1px solid #444;
+      border-radius: 12px;
+      padding: 20px;
+      width: 100%;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: center;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.7);
+    }
+    .dialog-title { font-size: 1.15rem; font-weight: bold; color: #ffd700; }
+    .dialog-body { font-size: 0.9rem; color: #ddd; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+    .dialog-btn {
+      padding: 10px;
+      border: none;
+      border-radius: 6px;
+      background: #1e90ff;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* リザルト画面モーダル */
+    .result-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 210;
+      padding: 20px;
+    }
+    .result-card {
+      background: #222;
+      border: 2px solid #ffd700;
+      border-radius: 12px;
+      padding: 22px;
+      width: 100%;
+      max-width: 360px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: center;
+    }
+    .result-winner-box {
+      background: #3a3215;
+      border: 1px solid #ffd700;
+      padding: 10px;
+      border-radius: 8px;
+      color: #ffd700;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 10px;
+      background: #2a2a2a;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 入室・待機画面 -->
+  <div id="joinScreen" class="join-screen">
+    <div class="join-title">炭鉱夫 Online</div>
+    <div class="join-subtitle">鉱石を集めて駆け引きするマルチ対戦カードゲーム</div>
+    <div class="join-box">
+      <input type="text" id="playerNameInput" placeholder="プレイヤー名を入力" maxlength="10" />
+      <button id="joinBtn" class="btn-join">ゲームに参加する</button>
+      <button id="startBtn" class="btn-start" style="display:none;">ゲームを開始する</button>
+    </div>
+
+    <!-- 参加中プレイヤー表示 -->
+    <div class="lobby-players" id="lobbyBox">
+      <div class="lobby-players-title">
+        <span>参加中のプレイヤー</span>
+        <span id="playerCountTag">0 / 5名</span>
+      </div>
+      <div id="lobbyPlayerList" style="display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;">
+        <span style="font-size:0.75rem; color:#666;">誰も入室していません</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 対戦画面 (画面上部: 対戦相手) -->
+  <div class="opponents-area" id="opponentsArea">
+    <div style="font-size:0.75rem; color:#666; text-align:center;">対戦相手待機中</div>
+  </div>
+
+  <!-- 中央フィールド (山札とログ) -->
+  <div class="field-area">
+    <div class="game-log" id="logBox">ゲーム開始を待っています...</div>
+    <div class="decks-container">
+      <div class="deck deck-mine">鉱山<span class="deck-count" id="mineCount">21</span></div>
+      <div class="deck deck-action">行動<span class="deck-count" id="actionCount">20</span></div>
+      <div class="deck deck-event">イベント<span class="deck-count" id="eventCount">12</span></div>
+    </div>
+  </div>
+
+  <!-- 自分のエリア (画面下部) -->
+  <div class="my-area">
+    <div class="section-label">
+      <span>自分の得点カード（非公開）</span>
+      <span id="myTotalScorePreview">合計: 0点</span>
+    </div>
+    <div class="cards-scroll" id="myScoreCards">
+      <div style="font-size:0.75rem; color:#555;">カードなし</div>
+    </div>
+
+    <div class="section-label">
+      <span>所持イベント（タップで使用）</span>
+      <span id="myTurnBadge" style="color:#1e90ff; font-weight:bold;"></span>
+    </div>
+    <div class="cards-scroll" id="myEventCards">
+      <div style="font-size:0.75rem; color:#555;">イベントなし</div>
+    </div>
+
+    <button class="btn" id="drawBtn" disabled>行動山札から1枚引く</button>
+  </div>
+
+  <!-- モーダルダイアログ (alertの代替) -->
+  <div id="customDialog" class="dialog-backdrop">
+    <div class="dialog-card">
+      <div class="dialog-title" id="dialogTitle">お知らせ</div>
+      <div class="dialog-body" id="dialogBody"></div>
+      <button class="dialog-btn" id="dialogCloseBtn">閉じる</button>
+    </div>
+  </div>
+
+  <!-- リザルト画面 -->
+  <div id="resultModal" class="result-backdrop">
+    <div class="result-card">
+      <div style="font-size: 1.3rem; font-weight: bold;">鉱山が枯渇！ ゲーム終了</div>
+      <div class="result-winner-box" id="resultWinner">勝者: ---</div>
+      <div style="display: flex; flex-direction: column; gap: 6px;" id="resultRows"></div>
+      <button class="btn btn-join" id="restartBtn">ロビーへ戻る / もう一度遊ぶ</button>
+    </div>
+  </div>
+
+  <script>
+    // Socket.io初期化
+    const socket = io();
+
+    const joinScreen = document.getElementById('joinScreen');
+    const playerNameInput = document.getElementById('playerNameInput');
+    const joinBtn = document.getElementById('joinBtn');
+    const startBtn = document.getElementById('startBtn');
+    const drawBtn = document.getElementById('drawBtn');
+    const logBox = document.getElementById('logBox');
+    const playerCountTag = document.getElementById('playerCountTag');
+    const lobbyPlayerList = document.getElementById('lobbyPlayerList');
+    const myTurnBadge = document.getElementById('myTurnBadge');
+    const myTotalScorePreview = document.getElementById('myTotalScorePreview');
+
+    // ダイアログヘルパー
+    const customDialog = document.getElementById('customDialog');
+    const dialogTitle = document.getElementById('dialogTitle');
+    const dialogBody = document.getElementById('dialogBody');
+    const dialogCloseBtn = document.getElementById('dialogCloseBtn');
+    function showModal(title, message) {
+      dialogTitle.innerText = title;
+      dialogBody.innerText = message;
+      customDialog.style.display = 'flex';
+    }
+    dialogCloseBtn.addEventListener('click', () => {
+      customDialog.style.display = 'none';
+    });
+
+    // リザルト画面
+    const resultModal = document.getElementById('resultModal');
+    const resultWinner = document.getElementById('resultWinner');
+    const resultRows = document.getElementById('resultRows');
+    const restartBtn = document.getElementById('restartBtn');
+
+    restartBtn.addEventListener('click', () => {
+      socket.emit('restart_game');
+      resultModal.style.display = 'none';
+    });
+
+    // 入室・開始ボタン
+    joinBtn.addEventListener('click', () => {
+      const name = playerNameInput.value.trim() || `プレイヤー${Math.floor(Math.random() * 900 + 100)}`;
+      socket.emit('join_game', name);
+      joinBtn.style.display = 'none';
+      playerNameInput.style.display = 'none';
+      startBtn.style.display = 'block';
+    });
+
+    startBtn.addEventListener('click', () => {
+      socket.emit('start_game');
+    });
+
+    drawBtn.addEventListener('click', () => {
+      socket.emit('draw_action_deck');
+    });
+
+    // 接続時ロビーステータス受信
+    socket.on('lobby_status', (data) => {
+      updateLobby(data.players);
+    });
+
+    function updateLobby(players) {
+      if (!players) return;
+      playerCountTag.innerText = `${players.length} / 5名`;
+      lobbyPlayerList.innerHTML = '';
+      if (players.length === 0) {
+        lobbyPlayerList.innerHTML = '<span style="font-size:0.75rem; color:#666;">誰も入室していません</span>';
+        return;
+      }
+      players.forEach(pName => {
+        const span = document.createElement('span');
+        span.className = 'lobby-player-tag';
+        span.innerText = pName;
+        lobbyPlayerList.appendChild(span);
+      });
+    }
+
+    // ゲーム状態受信
+    socket.on('state_update', (state) => {
+      // ロビー表示更新
+      if (state.allPlayerNames) {
+        updateLobby(state.allPlayerNames);
+      }
+
+      if (state.isGameStarted) {
+        joinScreen.style.display = 'none';
+      } else {
+        joinScreen.style.display = 'flex';
+      }
+
+      // 山札枚数
+      document.getElementById('mineCount').innerText = state.deckCounts.mine;
+      document.getElementById('actionCount').innerText = state.deckCounts.action;
+      document.getElementById('eventCount').innerText = state.deckCounts.event;
+
+      // ログ
+      if (state.logs && state.logs.length > 0) {
+        logBox.innerText = state.logs[state.logs.length - 1];
+      }
+
+      // 他プレイヤー状況
+      const oppArea = document.getElementById('opponentsArea');
+      oppArea.innerHTML = '';
+      if (state.opponents && state.opponents.length > 0) {
+        state.opponents.forEach(opp => {
+          const div = document.createElement('div');
+          div.className = `opponent-card ${opp.isCurrentTurn ? 'active' : ''}`;
+          div.innerHTML = `
+            <div style="font-weight:bold; overflow:hidden; text-overflow:ellipsis; max-width:140px; white-space:nowrap;">
+              ${opp.name} ${opp.isCurrentTurn ? '◀ ターン中' : ''}
+            </div>
+            <div style="font-size:0.75rem; color:#ccc;">
+              得点: <span style="color:#ffd700; font-weight:bold;">${opp.scoreCardCount}</span>枚 / 
+              EV: <span style="color:#4ade80; font-weight:bold;">${opp.eventCardCount}</span>枚
+            </div>
+          `;
+          oppArea.appendChild(div);
+        });
+      } else {
+        oppArea.innerHTML = '<div style="font-size:0.75rem; color:#666; text-align:center;">対戦相手なし</div>';
+      }
+
+      // 自分の得点カード
+      const scoreBox = document.getElementById('myScoreCards');
+      scoreBox.innerHTML = '';
+      let totalPts = 0;
+      if (state.myHand.scoreCards.length > 0) {
+        state.myHand.scoreCards.forEach(c => {
+          const card = document.createElement('div');
+          card.className = `card ${c.type === 'bomb' ? 'card-bomb' : 'card-score'}`;
+          card.innerText = c.type === 'bomb' ? '爆弾' : `${c.value}点`;
+          if (c.type === 'score' && typeof c.value === 'number') {
+            totalPts += c.value;
+          }
+          scoreBox.appendChild(card);
+        });
+      } else {
+        scoreBox.innerHTML = '<div style="font-size:0.75rem; color:#555;">カードなし</div>';
+      }
+      myTotalScorePreview.innerText = `合計: ${totalPts}点`;
+
+      // 自分のイベントカード
+      const eventBox = document.getElementById('myEventCards');
+      eventBox.innerHTML = '';
+      if (state.myHand.eventCards.length > 0) {
+        state.myHand.eventCards.forEach((c, idx) => {
+          const card = document.createElement('div');
+          card.className = 'card card-event';
+          card.innerText = c.name;
+          if (state.isMyTurn) {
+            card.onclick = () => socket.emit('use_event', idx);
+            card.title = 'タップして使用';
+          } else {
+            card.style.opacity = '0.5';
+            card.style.cursor = 'not-allowed';
+          }
+          eventBox.appendChild(card);
+        });
+      } else {
+        eventBox.innerHTML = '<div style="font-size:0.75rem; color:#555;">イベントなし</div>';
+      }
+
+      // ターン制御ボタンとバッジ
+      drawBtn.disabled = !state.isMyTurn;
+      if (state.isMyTurn) {
+        myTurnBadge.innerText = '★ あなたのターンです！';
+        myTurnBadge.style.color = '#ffd700';
+      } else {
+        myTurnBadge.innerText = '相手のターン中';
+        myTurnBadge.style.color = '#888';
+      }
+
+      // ゲーム終了・リザルト判定
+      if (state.extraData && state.extraData.gameOver) {
+        showResults(state.extraData);
+      }
+    });
+
+    function showResults(data) {
+      resultWinner.innerText = `勝者: ${data.winners.join(', ')} (${data.maxScore}点)`;
+      resultRows.innerHTML = '';
+      data.results.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'result-row';
+        row.innerHTML = `
+          <span style="font-weight:bold;">${r.name} ${r.hasBomb ? '💥(爆弾被弾)' : ''}</span>
+          <span style="color:#ffd700; font-weight:bold; font-size:1rem;">${r.score} 点</span>
+        `;
+        resultRows.appendChild(row);
+      });
+      resultModal.style.display = 'flex';
+    }
+
+    // 調査イベントの鉱山中身表示
+    socket.on('show_mine_cards', (mineCards) => {
+      const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c === '爆弾' ? '💥爆弾' : c + '点'}`).join('\n');
+      showModal('【調査完了】鉱山の中身', formatted || '鉱山は空です');
+    });
+
+    // エラーメッセージ
+    socket.on('error_message', (msg) => {
+      showModal('メッセージ', msg);
+    });
+  </script>
+</body>
+</html>

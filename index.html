@@ -487,6 +487,18 @@
       cursor: pointer;
     }
 
+    /* イベントカード使用確認ダイアログ */
+    .event-dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 205;
+      padding: 20px;
+    }
+
     /* リザルト画面モーダル */
     .result-backdrop {
       position: fixed;
@@ -742,13 +754,10 @@
           <div class="rules-section-title">手番（ターン）でやること</div>
           <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動山札から1枚引く」</strong>を押します。</p>
           <div class="rule-item" style="margin-top:6px;">
-            <span class="rule-badge badge-blue">つるはし</span> 鉱山からカードを <strong>1枚</strong> 採掘して手札（非公開）へ
+            <span class="rule-badge badge-blue">つるはし (14枚 / 70%)</span> 鉱山から <strong>1枚</strong> 採掘 ＆ イベント山札から <strong>1枚</strong> 獲得！
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-blue">ドリル</span> 鉱山からカードを <strong>2枚</strong> 採掘して手札（非公開）へ
-          </div>
-          <div class="rule-item">
-            <span class="rule-badge badge-green">イベント</span> イベント山札から <strong>イベントカードを1枚</strong> 獲得
+            <span class="rule-badge badge-blue">ドリル (6枚 / 30%)</span> 鉱山から <strong>2枚</strong> 採掘して手札へ！
           </div>
         </div>
 
@@ -1258,7 +1267,8 @@
           if (currentLog.includes('つるはし')) {
             soundManager.playPick();
             triggerDeckBounce('deckMine');
-            showToast('⛏️ つるはし！ 1枚採掘');
+            triggerDeckBounce('deckEvent');
+            showToast('⛏️ つるはし！ 鉱山1枚 ＋ イベント1枚');
           } else if (currentLog.includes('ドリル')) {
             soundManager.playDrill();
             triggerDeckBounce('deckMine');

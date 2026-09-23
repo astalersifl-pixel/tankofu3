@@ -298,15 +298,15 @@
       flex: 1;
     }
     
-    /* 山札エリア */
+    /* 山札エリア (鉱山とイベントの2つのみ) */
     .decks-container {
       display: flex;
-      gap: 12px;
+      gap: 16px;
       justify-content: center;
     }
     .deck {
-      width: 60px;
-      height: 75px;
+      width: 65px;
+      height: 80px;
       border-radius: 6px;
       display: flex;
       flex-direction: column;
@@ -314,13 +314,12 @@
       align-items: center;
       font-weight: bold;
       border: 1.5px solid rgba(255,255,255,0.7);
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       box-shadow: 0 4px 10px rgba(0,0,0,0.4);
     }
     .deck-mine { background: linear-gradient(145deg, #a11, #6a0000); }
-    .deck-action { background: linear-gradient(145deg, #2596be, #13557e); }
     .deck-event { background: linear-gradient(145deg, #3aa369, #1c5e3a); }
-    .deck-count { font-size: 1.05rem; margin-top: 4px; font-weight: 800; }
+    .deck-count { font-size: 1.1rem; margin-top: 4px; font-weight: 800; }
 
     .game-log {
       font-size: 0.8rem;
@@ -488,14 +487,14 @@
     }
 
     /* イベントカード使用確認ダイアログ */
-    .event-dialog-backdrop {
+    .dialog-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.75);
       display: none;
       justify-content: center;
       align-items: center;
-      z-index: 205;
+      z-index: 200;
       padding: 20px;
     }
 
@@ -676,8 +675,7 @@
   <div class="field-area">
     <div class="game-log" id="logBox">ゲーム開始を待っています...</div>
     <div class="decks-container">
-      <div class="deck deck-mine" id="deckMine">鉱山<span class="deck-count" id="mineCount">21</span></div>
-      <div class="deck deck-action" id="deckAction">行動<span class="deck-count" id="actionCount">20</span></div>
+      <div class="deck deck-mine" id="deckMine">鉱山<span class="deck-count" id="mineCount">42</span></div>
       <div class="deck deck-event" id="deckEvent">イベント<span class="deck-count" id="eventCount">12</span></div>
     </div>
   </div>
@@ -703,7 +701,7 @@
       <div style="font-size:0.75rem; color:#555;">イベントなし</div>
     </div>
 
-    <button class="btn" id="drawBtn" disabled>行動山札から1枚引く</button>
+    <button class="btn" id="drawBtn" disabled>行動する</button>
   </div>
 
   <!-- モーダルダイアログ (alertの代替) -->
@@ -752,9 +750,9 @@
 
         <div>
           <div class="rules-section-title">手番（ターン）でやること</div>
-          <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動山札から1枚引く」</strong>を押します。</p>
+          <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動する」</strong>を押します。</p>
           <div class="rule-item" style="margin-top:6px;">
-            <span class="rule-badge badge-blue">つるはし (14枚 / 70%)</span> 鉱山から <strong>1枚</strong> 採掘 ＆ イベント山札から <strong>1枚</strong> 獲得！
+            <span class="rule-badge badge-blue">つるはし (14枚 / 70%)</span> 鉱山から <strong>1枚</strong> 採掘 ＆ イベント山札から <strong>1枚</strong> 獲得（非公開）！
           </div>
           <div class="rule-item">
             <span class="rule-badge badge-blue">ドリル (6枚 / 30%)</span> 鉱山から <strong>2枚</strong> 採掘して手札へ！
@@ -762,18 +760,18 @@
         </div>
 
         <div>
-          <div class="rules-section-title">鉱山カード（全21枚）</div>
+          <div class="rules-section-title">鉱山カード（全42枚）</div>
           <div class="rule-item">
-            <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 10枚
+            <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 20枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-gold">金 (2点)</span> 7枚
+            <span class="rule-badge badge-gold">金 (2点)</span> 14枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 3枚
+            <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 6枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-red">💥 爆弾 (1枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
+            <span class="rule-badge badge-red">💥 爆弾 (2枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
           </div>
         </div>
 
@@ -1203,7 +1201,6 @@
 
     drawBtn.addEventListener('click', () => {
       soundManager.playDraw();
-      triggerDeckBounce('deckAction');
       socket.emit('draw_action_deck');
     });
 
@@ -1252,10 +1249,11 @@
         joinScreen.style.display = 'flex';
       }
 
-      // 山札枚数
-      document.getElementById('mineCount').innerText = state.deckCounts.mine;
-      document.getElementById('actionCount').innerText = state.deckCounts.action;
-      document.getElementById('eventCount').innerText = state.deckCounts.event;
+      // 山札枚数 (鉱山とイベントの2つのみ)
+      const mineEl = document.getElementById('mineCount');
+      if (mineEl) mineEl.innerText = state.deckCounts.mine;
+      const eventEl = document.getElementById('eventCount');
+      if (eventEl) eventEl.innerText = state.deckCounts.event;
 
       // 最新ログと演出判定
       const currentLog = (state.logs && state.logs.length > 0) ? state.logs[state.logs.length - 1] : '';

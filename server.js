@@ -34,12 +34,12 @@ let gameState = {
 };
 
 function initializeDecks() {
-  // 鉱山: 21枚 (石炭1点x10, 金2点x7, ダイヤ3点x3, 爆弾x1)
+  // 鉱山: 42枚 (石炭1点x20, 金2点x14, ダイヤ3点x6, 爆弾x2) - 得点カード2倍
   let mine = [];
-  for (let i = 0; i < 10; i++) mine.push({ type: 'score', name: '石炭', value: 1 });
-  for (let i = 0; i < 7; i++) mine.push({ type: 'score', name: '金', value: 2 });
-  for (let i = 0; i < 3; i++) mine.push({ type: 'score', name: 'ダイヤ', value: 3 });
-  mine.push({ type: 'bomb', name: '爆弾', value: 0 });
+  for (let i = 0; i < 20; i++) mine.push({ type: 'score', name: '石炭', value: 1 });
+  for (let i = 0; i < 14; i++) mine.push({ type: 'score', name: '金', value: 2 });
+  for (let i = 0; i < 6; i++) mine.push({ type: 'score', name: 'ダイヤ', value: 3 });
+  for (let i = 0; i < 2; i++) mine.push({ type: 'bomb', name: '爆弾', value: 0 });
 
   // 行動: 20枚 (つるはし:ドリル = 7:3 -> つるはしx14, ドリルx6)
   let action = [];
@@ -215,7 +215,7 @@ io.on('connection', (socket) => {
     broadcastState({ gameOver: false });
   });
 
-  // 行動山札を引く
+  // 行動する（行動山札を引く）
   socket.on('draw_action_deck', () => {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
     if (!currentPlayer || currentPlayer.id !== socket.id) return;
@@ -235,7 +235,7 @@ io.on('connection', (socket) => {
       if (gameState.decks.eventDeck.length > 0) {
         const evCard = gameState.decks.eventDeck.pop();
         currentPlayer.eventCards.push(evCard);
-        gameState.logs.push(`${currentPlayer.name} はイベントカード【${evCard.name}】を引きました`);
+        gameState.logs.push(`${currentPlayer.name} はイベントカードを1枚引きました（非公開）`);
       } else {
         gameState.logs.push('イベント山札が空のため引けませんでした');
       }

@@ -277,12 +277,17 @@ io.on('connection', (socket) => {
         gameState.logs.push('🤝 全員が得点を持っていないため山分けは不発でした');
       }
     } else if (usedCard.id === 'reveal') {
-      // 公開：ランダム1人の得点を開示
-      const target = gameState.players[Math.floor(Math.random() * gameState.players.length)];
-      const cardsStr = target.scoreCards.map(c => 
-        c.type === 'bomb' ? '💥爆弾' : `${c.name}(${c.value}点)`
-      ).join(', ');
-      gameState.logs.push(`👁️【公開】${target.name} の得点: [${cardsStr || 'なし'}]`);
+      // 公開：自分以外のランダム1人の得点を開示
+      const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
+      if (otherPlayers.length > 0) {
+        const target = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+        const cardsStr = target.scoreCards.map(c => 
+          c.type === 'bomb' ? '💥爆弾' : `${c.name}(${c.value}点)`
+        ).join(', ');
+        gameState.logs.push(`👁️【公開】${target.name} の得点: [${cardsStr || 'なし'}]`);
+      } else {
+        gameState.logs.push('👁️ 他に対象プレイヤーがいませんでした');
+      }
     } else if (usedCard.id === 'rob') {
       // 強奪：一番多く得点を持っている他プレイヤーからランダム1枚奪う
       let maxCount = -1;

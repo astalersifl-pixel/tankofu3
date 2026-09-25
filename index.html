@@ -796,18 +796,35 @@
         transform: translate(0, 0) scale(0.9) rotate(0deg);
         opacity: 0.95;
       }
-      35% {
-        transform: translate(calc(var(--dx) * 0.35), calc(var(--dy) * 0.35 - 20px)) scale(1.12) rotate(-8deg);
+      30% {
+        transform: translate(calc(var(--dx) * 0.35), calc(var(--dy) * 0.35 - 24px)) scale(1.15) rotate(-8deg);
         opacity: 1;
       }
-      80% {
-        transform: translate(calc(var(--dx) * 0.85), calc(var(--dy) * 0.85)) scale(0.95) rotate(4deg);
-        opacity: 0.9;
+      72% {
+        /* 手札へ到達（着地インパクト） */
+        transform: translate(var(--dx), var(--dy)) scale(1.05) rotate(2deg);
+        opacity: 1;
+      }
+      84% {
+        /* 到達時の反動（少し跳ねるアニメーション） */
+        transform: translate(var(--dx), calc(var(--dy) - 10px)) scale(1.08) rotate(-2deg);
+        opacity: 0.95;
       }
       100% {
-        transform: translate(var(--dx), var(--dy)) scale(0.7) rotate(0deg);
+        transform: translate(var(--dx), var(--dy)) scale(0.85) rotate(0deg);
         opacity: 0;
       }
+    }
+
+    /* 手札エリアのカード着地バウンド */
+    @keyframes handLandingBounce {
+      0% { transform: scale(1) translateY(0); }
+      35% { transform: scale(1.06) translateY(-5px); }
+      70% { transform: scale(0.98) translateY(2px); }
+      100% { transform: scale(1) translateY(0); }
+    }
+    .hand-landing-bounce {
+      animation: handLandingBounce 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
     }
   </style>
 </head>
@@ -1273,12 +1290,22 @@
 
         document.body.appendChild(flyCard);
 
+        // 手札着地時の跳ねるバウンド演出
+        setTimeout(() => {
+          if (toEl) {
+            toEl.classList.remove('hand-landing-bounce');
+            void toEl.offsetWidth; // リフロー
+            toEl.classList.add('hand-landing-bounce');
+          }
+        }, 360);
+
         flyCard.addEventListener('animationend', () => {
           if (flyCard.parentNode) flyCard.parentNode.removeChild(flyCard);
         });
         setTimeout(() => {
           if (flyCard.parentNode) flyCard.parentNode.removeChild(flyCard);
-        }, 650);
+          if (toEl) toEl.classList.remove('hand-landing-bounce');
+        }, 720);
       }, delay);
     }
 

@@ -413,6 +413,49 @@
       cursor: pointer;
     }
 
+    /* 取引時の得点カード選択オプション */
+    .trade-options-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 150px;
+      overflow-y: auto;
+      margin-top: 6px;
+      padding-right: 4px;
+    }
+    .trade-option-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 10px;
+      background: #2a2a2a;
+      border: 1.5px solid #444;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #ddd;
+      transition: all 0.15s ease;
+      text-align: left;
+    }
+    .trade-option-item:hover {
+      background: #333;
+      border-color: #666;
+    }
+    .trade-option-item.selected {
+      background: #3d3514;
+      border-color: #ffd700;
+      color: #ffd700;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
+    }
+    .trade-check-badge {
+      font-size: 0.72rem;
+      font-weight: 800;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.3);
+    }
+
     /* リザルト画面モーダル */
     .result-backdrop {
       position: fixed;
@@ -745,7 +788,7 @@
         </div>
         <div class="deck deck-event" id="deckEvent" title="イベント山札（タップ不可）">
           <span class="deck-label">イベント</span>
-          <span class="deck-count" id="eventCount">12</span>
+          <span class="deck-count" id="eventCount">10</span>
         </div>
       </div>
 
@@ -776,7 +819,7 @@
     </div>
 
     <div class="section-label">
-      <span>所持イベント（タップで使用）</span>
+      <span id="myEventHeader">所持イベント（最大4枚・タップで使用）</span>
       <span id="myTurnBadge" style="color:#1e90ff; font-weight:bold;"></span>
     </div>
     <div class="cards-scroll" id="myEventCards">
@@ -858,15 +901,14 @@
         </div>
 
         <div>
-          <div class="rules-section-title">イベントカード（自分のターンに自由に使用）</div>
-          <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。</p>
-          <div class="rule-item"><strong>🔍 調査</strong>: 鉱山山札に残っているカードの順序を自分だけ確認</div>
+          <div class="rules-section-title">イベントカード（全10枚 / 手札上限4枚）</div>
+          <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。手札は最大4枚まで持て、5枚目以降は山札へ返却されます。</p>
           <div class="rule-item"><strong>💣 爆破</strong>: 爆弾を持つプレイヤーは爆弾とランダムな得点1枚を鉱山に戻しシャッフル！（誰も爆弾が無ければ不発）</div>
           <div class="rule-item"><strong>💰 賄賂</strong>: 自分の最小得点カード1枚を鉱山に戻し、イベント山札から2枚引く</div>
           <div class="rule-item"><strong>🤝 山分け</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
-          <div class="rule-item"><strong>👁️ 公開</strong>: 自分以外のランダムなプレイヤー1人の手札得点を全員に公開</div>
+          <div class="rule-item"><strong>👁️ 公開</strong>: 自分以外のランダムなプレイヤー1人の手札得点をまとめて全員に公開</div>
           <div class="rule-item"><strong>🦹 強奪</strong>: 最も得点カードを多く持つ相手から1枚奪う</div>
-          <div class="rule-item"><strong>🔄 取引</strong>: 他のプレイヤー1人と得点カードをランダムに1枚交換</div>
+          <div class="rule-item"><strong>🔄 取引</strong>: 自分の得点カードを1枚選び、他のプレイヤー1人とランダムに得点カードを交換</div>
         </div>
 
         <div>
@@ -1202,30 +1244,71 @@
     const eventConfirmOkBtn = document.getElementById('eventConfirmOkBtn');
 
     const EVENT_INFO = {
-      'survey': { title: '🔍 調査', desc: '鉱山山札に残っているカードの順序を自分だけ確認します。' },
       'blast': { title: '💣 爆破', desc: '爆弾を持つプレイヤーは、爆弾とランダムな得点1枚を鉱山に戻してシャッフルします。\n（※誰も爆弾を持っていなければ不発となります）' },
-      'bribe': { title: '💰 賄賂', desc: '自分の得点カードの中で一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引きます。\n（※戻せる得点がない場合は不発となります）' },
+      'bribe': { title: '💰 賄賂', desc: '自分の得点カードの中で一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引きます。\n（※戻せる得点がない場合は不発となります。手札上限は4枚です）' },
       'share': { title: '🤝 山分け', desc: '全プレイヤーの得点カードを一旦回収し、時計回りに1枚ずつ再分配します！' },
-      'reveal': { title: '👁️ 公開', desc: '自分以外のランダムなプレイヤー1人の手札得点を全員に公開します。' },
+      'reveal': { title: '👁️ 公開', desc: '自分以外のランダムなプレイヤー1人の手札得点をまとめて全員に公開します。' },
       'rob': { title: '🦹 強奪', desc: '最も得点カードを多く持っている相手からランダムに1枚奪います。' },
-      'trade': { title: '🔄 取引', desc: '他プレイヤー1人とランダムに得点カードを1枚交換します。' }
+      'trade': { title: '🔄 取引', desc: '自分の得点カードを1枚選び、他プレイヤー1人とランダムに得点カードを交換します。' }
     };
 
     let pendingEventIndex = null;
+    let pendingCardId = null;
+    let selectedTradeScoreCardIndex = 0;
+    let currentClientState = null;
 
     function promptUseEvent(card, index) {
+      if (card.id === 'trade') {
+        const scoreCards = (currentClientState && currentClientState.myHand) ? currentClientState.myHand.scoreCards : [];
+        if (!scoreCards || scoreCards.length === 0) {
+          showModal('取引不可', '手札に交換できる得点カードがありません。');
+          return;
+        }
+      }
+
       pendingEventIndex = index;
+      pendingCardId = card.id;
+      selectedTradeScoreCardIndex = 0;
+
       const info = EVENT_INFO[card.id] || {
         title: `✨ ${card.name}`,
         desc: 'このイベントカードを使用します。'
       };
 
       eventConfirmTitle.innerText = `${info.title} を使いますか？`;
+
+      let extraHtml = '';
+      if (card.id === 'trade') {
+        const scoreCards = (currentClientState && currentClientState.myHand) ? currentClientState.myHand.scoreCards : [];
+        let itemsHtml = '';
+        scoreCards.forEach((sc, sIdx) => {
+          const icon = sc.type === 'bomb' ? '💥' : (sc.value === 3 ? '💎' : (sc.value === 2 ? '🟡' : '⛏️'));
+          const label = sc.type === 'bomb' ? '爆弾 (0点)' : `${sc.name} (${sc.value}点)`;
+          const isSelected = (sIdx === 0);
+          itemsHtml += `
+            <div class="trade-option-item ${isSelected ? 'selected' : ''}" data-idx="${sIdx}" onclick="selectTradeScoreCard(${sIdx})">
+              <span>${icon} ${label}</span>
+              <span class="trade-check-badge" id="tradeBadge_${sIdx}">${isSelected ? '✔ 選択中' : '選択'}</span>
+            </div>
+          `;
+        });
+
+        extraHtml = `
+          <div style="margin-top:10px; text-align:left;">
+            <div style="font-size:0.8rem; color:#ffd700; font-weight:bold; margin-bottom:6px;">▼ 相手に渡す得点カードを選んでください:</div>
+            <div class="trade-options-container">
+              ${itemsHtml}
+            </div>
+          </div>
+        `;
+      }
+
       eventConfirmBody.innerHTML = `
-        <div style="background:#1a1a1a; border:1px solid #3a3a3a; border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:0.86rem; color:#ffd700; text-align:left; line-height:1.5;">
+        <div style="background:#1a1a1a; border:1px solid #3a3a3a; border-radius:8px; padding:10px 12px; margin-bottom:8px; font-size:0.86rem; color:#ffd700; text-align:left; line-height:1.5;">
           ${info.desc.replace(/\n/g, '<br>')}
         </div>
-        <div style="font-size:0.78rem; color:#aaa; text-align:center;">
+        ${extraHtml}
+        <div style="font-size:0.76rem; color:#aaa; text-align:center; margin-top:8px;">
           ※使用するとこのターンで効果が発動し、ターンが終了します。<br>（使用後はイベント山札の底に戻ります）
         </div>
       `;
@@ -1233,23 +1316,49 @@
       soundManager.playDraw();
     }
 
+    window.selectTradeScoreCard = function(sIdx) {
+      selectedTradeScoreCardIndex = sIdx;
+      document.querySelectorAll('.trade-option-item').forEach((el) => {
+        const idx = parseInt(el.getAttribute('data-idx'), 10);
+        const badge = document.getElementById(`tradeBadge_${idx}`);
+        if (idx === sIdx) {
+          el.classList.add('selected');
+          if (badge) badge.innerText = '✔ 選択中';
+        } else {
+          el.classList.remove('selected');
+          if (badge) badge.innerText = '選択';
+        }
+      });
+      soundManager.playDraw();
+    };
+
     eventConfirmOkBtn.addEventListener('click', () => {
       if (pendingEventIndex !== null) {
         soundManager.playEvent();
-        socket.emit('use_event', pendingEventIndex);
+        if (pendingCardId === 'trade') {
+          socket.emit('use_event', {
+            cardIndex: pendingEventIndex,
+            selectedScoreCardIndex: selectedTradeScoreCardIndex
+          });
+        } else {
+          socket.emit('use_event', pendingEventIndex);
+        }
         pendingEventIndex = null;
+        pendingCardId = null;
       }
       eventConfirmDialog.style.display = 'none';
     });
 
     eventConfirmCancelBtn.addEventListener('click', () => {
       pendingEventIndex = null;
+      pendingCardId = null;
       eventConfirmDialog.style.display = 'none';
     });
 
     eventConfirmDialog.addEventListener('click', (e) => {
       if (e.target === eventConfirmDialog) {
         pendingEventIndex = null;
+        pendingCardId = null;
         eventConfirmDialog.style.display = 'none';
       }
     });
@@ -1321,6 +1430,7 @@
 
     // ゲーム状態受信
     socket.on('state_update', (state) => {
+      currentClientState = state;
       // ロビー表示更新
       if (state.allPlayerNames) {
         updateLobby(state.allPlayerNames);
@@ -1508,6 +1618,12 @@
       // 自分のイベントカード
       const eventBox = document.getElementById('myEventCards');
       eventBox.innerHTML = '';
+      const eventCount = state.myHand.eventCards ? state.myHand.eventCards.length : 0;
+      const myEventHeader = document.getElementById('myEventHeader');
+      if (myEventHeader) {
+        myEventHeader.innerText = `所持イベント (${eventCount}/4枚・タップで使用)`;
+      }
+
       if (state.myHand.eventCards.length > 0) {
         state.myHand.eventCards.forEach((c, idx) => {
           const card = document.createElement('div');

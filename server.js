@@ -30,11 +30,11 @@ let gameState = {
 };
 
 function initializeDecks() {
-  // 鉱山: 42枚 (石炭1点x20, 金2点x14, ダイヤ3点x6, 爆弾x2) - 得点カード2倍
+  // 鉱山: 32枚 (石炭1点x15, 金2点x10, ダイヤ3点x5, 爆弾x2)
   let mine = [];
-  for (let i = 0; i < 20; i++) mine.push({ type: 'score', name: '石炭', value: 1 });
-  for (let i = 0; i < 14; i++) mine.push({ type: 'score', name: '金', value: 2 });
-  for (let i = 0; i < 6; i++) mine.push({ type: 'score', name: 'ダイヤ', value: 3 });
+  for (let i = 0; i < 15; i++) mine.push({ type: 'score', name: '石炭', value: 1 });
+  for (let i = 0; i < 10; i++) mine.push({ type: 'score', name: '金', value: 2 });
+  for (let i = 0; i < 5; i++) mine.push({ type: 'score', name: 'ダイヤ', value: 3 });
   for (let i = 0; i < 2; i++) mine.push({ type: 'bomb', name: '爆弾', value: 0 });
 
   // 行動: 20枚 (つるはし:ドリル = 7:3 -> つるはしx14, ドリルx6)
@@ -42,14 +42,14 @@ function initializeDecks() {
   for (let i = 0; i < 14; i++) action.push('つるはし');
   for (let i = 0; i < 6; i++) action.push('ドリル');
 
-  // イベント: 10枚 (調査削除、賄賂x1, 爆破x2, 取引x2, 山分けx1, 公開x2, 強奪x2)
+  // イベント: 13枚 (爆破x2, 賄賂x2, 山分けx1, 公開x2, 強奪x3, 取引x3)
   let eventList = [
-    { id: 'bribe', name: '賄賂' },
     { id: 'blast', name: '爆破' }, { id: 'blast', name: '爆破' },
-    { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' },
+    { id: 'bribe', name: '賄賂' }, { id: 'bribe', name: '賄賂' },
     { id: 'share', name: '山分け' },
     { id: 'reveal', name: '公開' }, { id: 'reveal', name: '公開' },
-    { id: 'rob', name: '強奪' }, { id: 'rob', name: '強奪' }
+    { id: 'rob', name: '強奪' }, { id: 'rob', name: '強奪' }, { id: 'rob', name: '強奪' },
+    { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' }
   ];
 
   return {

@@ -355,7 +355,29 @@
     .card-gold { background: linear-gradient(145deg, #ffd700, #d4af37); color: #222; border: 1.5px solid #fff; }
     .card-diamond { background: linear-gradient(145deg, #b9f2ff, #70d6ff); color: #003049; border: 1.5px solid #fff; }
     .card-bomb { background: #ff4500; color: #fff; border: 2px solid #ffd700; animation: pulse 1.5s infinite; }
-    .card-event { background: #2e8b57; color: #fff; border: 1px solid #4ade80; }
+    .card-event {
+      background: linear-gradient(145deg, #2e8b57, #1b5e3a);
+      color: #fff;
+      border: 1.5px solid #4ade80;
+      min-width: 58px;
+      height: 62px;
+      padding: 3px 2px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 2px;
+    }
+    .card-event-icon {
+      font-size: 1.25rem;
+      line-height: 1;
+    }
+    .card-event-name {
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
 
     @keyframes pulse {
       0%, 100% { box-shadow: 0 0 0 0 rgba(255, 69, 0, 0.4); }
@@ -736,6 +758,57 @@
       animation: turnPulse 1.6s infinite !important;
       background: linear-gradient(135deg, #1e90ff, #00bfff) !important;
     }
+
+    /* 山札から手札への飛行カードアニメーション */
+    .flying-card {
+      position: fixed;
+      width: 44px;
+      height: 60px;
+      border-radius: 6px;
+      z-index: 180;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      font-size: 1.15rem;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.6), 0 0 10px rgba(255,255,255,0.3);
+      animation: flyToHand 0.48s cubic-bezier(0.2, 0.9, 0.3, 1) forwards;
+    }
+    .flying-card-mine {
+      background: linear-gradient(145deg, #a11, #6a0000);
+      border: 1.5px solid #ff9999;
+      color: #fff;
+    }
+    .flying-card-event {
+      background: linear-gradient(145deg, #3aa369, #1c5e3a);
+      border: 1.5px solid #86efac;
+      color: #fff;
+    }
+    .flying-card-drill {
+      background: linear-gradient(145deg, #a11, #550000);
+      border: 1.5px solid #fde047;
+      color: #fff;
+    }
+
+    @keyframes flyToHand {
+      0% {
+        transform: translate(0, 0) scale(0.9) rotate(0deg);
+        opacity: 0.95;
+      }
+      35% {
+        transform: translate(calc(var(--dx) * 0.35), calc(var(--dy) * 0.35 - 20px)) scale(1.12) rotate(-8deg);
+        opacity: 1;
+      }
+      80% {
+        transform: translate(calc(var(--dx) * 0.85), calc(var(--dy) * 0.85)) scale(0.95) rotate(4deg);
+        opacity: 0.9;
+      }
+      100% {
+        transform: translate(var(--dx), var(--dy)) scale(0.7) rotate(0deg);
+        opacity: 0;
+      }
+    }
   </style>
 </head>
 <body>
@@ -784,11 +857,11 @@
       <div class="decks-container">
         <div class="deck deck-mine" id="deckMine" title="鉱山山札（タップ不可）">
           <span class="deck-label">鉱山</span>
-          <span class="deck-count" id="mineCount">42</span>
+          <span class="deck-count" id="mineCount">32</span>
         </div>
         <div class="deck deck-event" id="deckEvent" title="イベント山札（タップ不可）">
           <span class="deck-label">イベント</span>
-          <span class="deck-count" id="eventCount">10</span>
+          <span class="deck-count" id="eventCount">13</span>
         </div>
       </div>
 
@@ -885,15 +958,15 @@
         </div>
 
         <div>
-          <div class="rules-section-title">鉱山カード（全42枚）</div>
+          <div class="rules-section-title">鉱山カード（全32枚）</div>
           <div class="rule-item">
-            <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 20枚
+            <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 15枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-gold">金 (2点)</span> 14枚
+            <span class="rule-badge badge-gold">金 (2点)</span> 10枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 6枚
+            <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 5枚
           </div>
           <div class="rule-item">
             <span class="rule-badge badge-red">💥 爆弾 (2枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
@@ -901,14 +974,14 @@
         </div>
 
         <div>
-          <div class="rules-section-title">イベントカード（全10枚 / 手札上限4枚）</div>
+          <div class="rules-section-title">イベントカード（全13枚 / 手札上限4枚）</div>
           <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。手札は最大4枚まで持て、5枚目以降は山札へ返却されます。</p>
-          <div class="rule-item"><strong>💣 爆破</strong>: 爆弾を持つプレイヤーは爆弾とランダムな得点1枚を鉱山に戻しシャッフル！（誰も爆弾が無ければ不発）</div>
-          <div class="rule-item"><strong>💰 賄賂</strong>: 自分の最小得点カード1枚を鉱山に戻し、イベント山札から2枚引く</div>
-          <div class="rule-item"><strong>🤝 山分け</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
-          <div class="rule-item"><strong>👁️ 公開</strong>: 自分以外のランダムなプレイヤー1人の手札得点をまとめて全員に公開</div>
-          <div class="rule-item"><strong>🦹 強奪</strong>: 最も得点カードを多く持つ相手から1枚奪う</div>
-          <div class="rule-item"><strong>🔄 取引</strong>: 自分の得点カードを1枚選び、他のプレイヤー1人とランダムに得点カードを交換</div>
+          <div class="rule-item"><strong>💣 爆破 (2枚)</strong>: 爆弾を持つプレイヤーは爆弾とランダムな得点1枚を鉱山に戻しシャッフル！（誰も爆弾が無ければ不発）</div>
+          <div class="rule-item"><strong>💰 賄賂 (2枚)</strong>: 自分の最小得点カード1枚を鉱山に戻し、イベント山札から2枚引く</div>
+          <div class="rule-item"><strong>🤝 山分け (1枚)</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
+          <div class="rule-item"><strong>👁️ 公開 (2枚)</strong>: 自分以外のランダムなプレイヤー1人の手札得点をまとめて全員に公開</div>
+          <div class="rule-item"><strong>🦹 強奪 (3枚)</strong>: 最も得点カードを多く持つ相手から1枚奪う</div>
+          <div class="rule-item"><strong>🔄 取引 (3枚)</strong>: 自分の得点カードを1枚選び、他のプレイヤー1人とランダムに得点カードを交換</div>
         </div>
 
         <div>
@@ -1167,6 +1240,64 @@
       setTimeout(() => document.body.classList.remove('shake'), 450);
     }
 
+    // 山札から手札へのカード移動アニメーション
+    function animateCardFly(fromId, toId, cardType = 'mine', delay = 0) {
+      setTimeout(() => {
+        const fromEl = typeof fromId === 'string' ? document.getElementById(fromId) : fromId;
+        const toEl = typeof toId === 'string' ? document.getElementById(toId) : toId;
+        if (!fromEl || !toEl) return;
+
+        const fromRect = fromEl.getBoundingClientRect();
+        const toRect = toEl.getBoundingClientRect();
+
+        const flyCard = document.createElement('div');
+        flyCard.className = `flying-card flying-card-${cardType}`;
+
+        if (cardType === 'mine') {
+          flyCard.innerHTML = '<span>⛏️</span>';
+        } else if (cardType === 'event') {
+          flyCard.innerHTML = '<span>✨</span>';
+        } else if (cardType === 'drill') {
+          flyCard.innerHTML = '<span>⚡</span>';
+        }
+
+        const startX = fromRect.left + (fromRect.width / 2) - 22;
+        const startY = fromRect.top + (fromRect.height / 2) - 30;
+        const endX = toRect.left + (toRect.width / 2) - 22;
+        const endY = toRect.top + (toRect.height / 2) - 30;
+
+        flyCard.style.left = `${startX}px`;
+        flyCard.style.top = `${startY}px`;
+        flyCard.style.setProperty('--dx', `${endX - startX}px`);
+        flyCard.style.setProperty('--dy', `${endY - startY}px`);
+
+        document.body.appendChild(flyCard);
+
+        flyCard.addEventListener('animationend', () => {
+          if (flyCard.parentNode) flyCard.parentNode.removeChild(flyCard);
+        });
+        setTimeout(() => {
+          if (flyCard.parentNode) flyCard.parentNode.removeChild(flyCard);
+        }, 650);
+      }, delay);
+    }
+
+    function triggerDrawFlyAnimation(actionType) {
+      const isMine = lastStateCache.isMyTurn;
+      const oppEl = document.querySelector('.opponent-card.active') || document.getElementById('opponentsArea');
+
+      const mineTarget = isMine ? 'myScoreCards' : (oppEl || 'myScoreCards');
+      const eventTarget = isMine ? 'myEventCards' : (oppEl || 'myEventCards');
+
+      if (actionType === 'pickaxe') {
+        animateCardFly('deckMine', mineTarget, 'mine', 0);
+        animateCardFly('deckEvent', eventTarget, 'event', 140);
+      } else if (actionType === 'drill') {
+        animateCardFly('deckMine', mineTarget, 'mine', 0);
+        animateCardFly('deckMine', mineTarget, 'drill', 180);
+      }
+    }
+
     // Socket.io初期化
     const socket = io();
 
@@ -1249,7 +1380,16 @@
       'share': { title: '🤝 山分け', desc: '全プレイヤーの得点カードを一旦回収し、時計回りに1枚ずつ再分配します！' },
       'reveal': { title: '👁️ 公開', desc: '自分以外のランダムなプレイヤー1人の手札得点をまとめて全員に公開します。' },
       'rob': { title: '🦹 強奪', desc: '最も得点カードを多く持っている相手からランダムに1枚奪います。' },
-      'trade': { title: '🔄 取引', desc: '自分の得点カードを1枚選び、他プレイヤー1人とランダムに得点カードを交換します。' }
+      'trade': { title: '🔄 取引', desc: '自分の得点カードを1枚選び、他プレイヤー1人とランダムに得点カードを交換します。\n\n⚠️【重要】相手に渡すカードを【下の選択肢からタップ】して選んでください！' }
+    };
+
+    const EVENT_ICONS = {
+      'blast': '💣',
+      'bribe': '💰',
+      'share': '🤝',
+      'reveal': '👁️',
+      'rob': '🦹',
+      'trade': '🔄'
     };
 
     let pendingEventIndex = null;
@@ -1288,16 +1428,22 @@
           itemsHtml += `
             <div class="trade-option-item ${isSelected ? 'selected' : ''}" data-idx="${sIdx}" onclick="selectTradeScoreCard(${sIdx})">
               <span>${icon} ${label}</span>
-              <span class="trade-check-badge" id="tradeBadge_${sIdx}">${isSelected ? '✔ 選択中' : '選択'}</span>
+              <span class="trade-check-badge" id="tradeBadge_${sIdx}">${isSelected ? '✔ これを渡す' : 'タップして選択'}</span>
             </div>
           `;
         });
 
         extraHtml = `
-          <div style="margin-top:10px; text-align:left;">
-            <div style="font-size:0.8rem; color:#ffd700; font-weight:bold; margin-bottom:6px;">▼ 相手に渡す得点カードを選んでください:</div>
+          <div style="margin-top:10px; text-align:left; background:#29220d; border:2px solid #ffd700; border-radius:8px; padding:10px 10px 8px; box-shadow:0 0 10px rgba(255,215,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <span style="font-size:0.86rem; color:#ffd700; font-weight:900;">👇 下から渡すカードを1つ選択:</span>
+              <span style="font-size:0.72rem; color:#ffec8b; font-weight:bold;">タップで変更</span>
+            </div>
             <div class="trade-options-container">
               ${itemsHtml}
+            </div>
+            <div style="font-size:0.74rem; color:#ffd700; text-align:center; margin-top:8px; font-weight:bold; border-top:1px dashed #665215; padding-top:6px;">
+              ※「✔ これを渡す」が付いたカードを相手に渡し、「使う」を押してください
             </div>
           </div>
         `;
@@ -1323,10 +1469,10 @@
         const badge = document.getElementById(`tradeBadge_${idx}`);
         if (idx === sIdx) {
           el.classList.add('selected');
-          if (badge) badge.innerText = '✔ 選択中';
+          if (badge) badge.innerText = '✔ これを渡す';
         } else {
           el.classList.remove('selected');
-          if (badge) badge.innerText = '選択';
+          if (badge) badge.innerText = 'タップして選択';
         }
       });
       soundManager.playDraw();
@@ -1485,10 +1631,12 @@
             soundManager.playPick();
             triggerDeckBounce('deckMine');
             triggerDeckBounce('deckEvent');
+            triggerDrawFlyAnimation('pickaxe');
             showToast('⛏️ つるはし！ 鉱山1枚 ＋ イベント1枚');
           } else if (currentLog.includes('ドリル')) {
             soundManager.playDrill();
             triggerDeckBounce('deckMine');
+            triggerDrawFlyAnimation('drill');
             showToast('⚡ ドリル！ 2枚採掘');
           } else if (currentLog.includes('爆破') || currentLog.includes('💣')) {
             soundManager.playBomb();
@@ -1628,12 +1776,24 @@
         state.myHand.eventCards.forEach((c, idx) => {
           const card = document.createElement('div');
           card.className = 'card card-event pop-in';
-          card.innerText = c.name;
+          const icon = EVENT_ICONS[c.id] || (
+            c.name.includes('爆破') ? '💣' :
+            c.name.includes('賄賂') ? '💰' :
+            c.name.includes('山分け') ? '🤝' :
+            c.name.includes('公開') ? '👁️' :
+            c.name.includes('強奪') ? '🦹' :
+            c.name.includes('取引') ? '🔄' : '✨'
+          );
+          card.innerHTML = `
+            <span class="card-event-icon">${icon}</span>
+            <span class="card-event-name">${c.name}</span>
+          `;
+          card.title = `${icon} ${c.name}（タップして使用）`;
           if (state.isMyTurn) {
             card.onclick = () => {
               promptUseEvent(c, idx);
             };
-            card.title = 'タップして使用';
+            card.title = `${icon} ${c.name}（タップして使用）`;
           } else {
             card.style.opacity = '0.5';
             card.style.cursor = 'not-allowed';

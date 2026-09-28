@@ -429,6 +429,10 @@ function endGame() {
   let results = gameState.players.map(p => {
     let hasBomb = p.scoreCards.some(c => c.type === 'bomb');
     let cards = [...p.scoreCards];
+    let destroyedCard = null;
+
+    // 爆弾判定前の暫定得点
+    let initialScore = p.scoreCards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
 
     // 爆弾所持の場合、爆弾以外の得点からランダム1枚廃棄
     if (hasBomb) {
@@ -436,18 +440,27 @@ function endGame() {
       cards.forEach((c, idx) => { if (c.type !== 'bomb') nonBombIndices.push(idx); });
       if (nonBombIndices.length > 0) {
         let discardIdx = nonBombIndices[Math.floor(Math.random() * nonBombIndices.length)];
+        destroyedCard = cards[discardIdx];
         cards.splice(discardIdx, 1);
       }
     }
 
-    // 得点集計 (爆弾は0点扱い)
-    let score = cards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
-    return { name: p.name, score: score, hasBomb: hasBomb, originalCount: p.scoreCards.length };
+    // 爆弾処理後の最終得点集計 (爆弾は0点扱い)
+    let finalScore = cards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
+    return {
+      name: p.name,
+      initialScore: initialScore,
+      finalScore: finalScore,
+      score: finalScore, // 後方互換用
+      hasBomb: hasBomb,
+      destroyedCard: destroyedCard ? { name: destroyedCard.name, value: destroyedCard.value } : null,
+      originalCount: p.scoreCards.length
+    };
   });
 
   // 最高得点者判定 (同点は全員勝利)
-  let maxScore = Math.max(...results.map(r => r.score), 0);
-  let winners = results.filter(r => r.score === maxScore).map(r => r.name);
+  let maxScore = Math.max(...results.map(r => r.finalScore), 0);
+  let winners = results.filter(r => r.finalScore === maxScore).map(r => r.name);
 
   gameState.logs.push(`勝者: ${winners.join(', ')} (得点: ${maxScore}点)`);
   broadcastState({ gameOver: true, results: results, winners: winners, maxScore: maxScore });

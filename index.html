@@ -478,6 +478,61 @@
       background: rgba(0,0,0,0.3);
     }
 
+    /* ゲーム終了！オーバーレイ演出 */
+    .game-over-overlay {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(35, 20, 10, 0.95), rgba(10, 5, 0, 0.98));
+      z-index: 300;
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+    .game-over-banner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      animation: gameOverZoom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+    }
+    .game-over-subtext {
+      font-size: 0.9rem;
+      letter-spacing: 4px;
+      color: #ffaa00;
+      font-weight: 800;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px rgba(255, 170, 0, 0.5);
+    }
+    .game-over-maintext {
+      font-size: 3.6rem;
+      font-weight: 900;
+      color: #ffd700;
+      text-shadow: 0 0 25px rgba(255, 215, 0, 0.8), 0 0 50px rgba(255, 69, 0, 0.6);
+      letter-spacing: 6px;
+      line-height: 1.1;
+    }
+    .game-over-desc {
+      font-size: 0.95rem;
+      color: #eee;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 6px 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 215, 0, 0.35);
+      margin-top: 4px;
+    }
+    @keyframes gameOverZoom {
+      0% { transform: scale(0.3); opacity: 0; }
+      65% { transform: scale(1.12); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    @keyframes gameOverFadeOut {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.08); }
+    }
+
     /* リザルト画面モーダル */
     .result-backdrop {
       position: fixed;
@@ -487,37 +542,119 @@
       justify-content: center;
       align-items: center;
       z-index: 210;
-      padding: 20px;
+      padding: 16px;
     }
     .result-card {
-      background: #222;
+      background: #202020;
       border: 2px solid #ffd700;
-      border-radius: 12px;
-      padding: 22px;
+      border-radius: 14px;
+      padding: 20px;
       width: 100%;
       max-width: 360px;
+      max-height: 90vh;
+      overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
     }
-    .result-winner-box {
-      background: #3a3215;
-      border: 1px solid #ffd700;
-      padding: 10px;
-      border-radius: 8px;
+    .result-title {
+      font-size: 1.25rem;
+      font-weight: 800;
       color: #ffd700;
-      font-weight: bold;
-      font-size: 1.1rem;
+      letter-spacing: 1px;
+    }
+    .result-rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      margin-top: 2px;
     }
     .result-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 6px 10px;
+      padding: 8px 12px;
       background: #2a2a2a;
-      border-radius: 6px;
-      font-size: 0.85rem;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      border: 1.5px solid #444;
+      transition: all 0.2s;
+    }
+    .result-row.rank-1 {
+      background: linear-gradient(135deg, #3d3514, #2a2410);
+      border-color: #ffd700;
+      box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+    }
+    .result-row.rank-last {
+      background: #222;
+      border-color: #555;
+      opacity: 0.92;
+    }
+    .result-rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 900;
+      margin-right: 8px;
+    }
+    .badge-rank-1 { background: #ffd700; color: #111; }
+    .badge-rank-2 { background: #c0c0c0; color: #111; }
+    .badge-rank-3 { background: #cd7f32; color: #fff; }
+    .badge-rank-last { background: #444; color: #ccc; }
+
+    /* 爆弾判定セクション */
+    .result-bomb-section {
+      background: #281210;
+      border: 1.5px solid #ff4500;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      text-align: left;
+      box-shadow: 0 0 14px rgba(255, 69, 0, 0.35);
+    }
+    .result-bomb-title {
+      font-size: 0.84rem;
+      font-weight: 900;
+      color: #ff6b6b;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .result-bomb-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      font-size: 0.78rem;
+      color: #ddd;
+    }
+    .result-bomb-item {
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 4px;
+      line-height: 1.4;
+      border-left: 3px solid #ff4500;
+    }
+    .result-bomb-item.safe {
+      border-left-color: #4ade80;
+    }
+
+    .result-winner-box {
+      background: linear-gradient(135deg, #3a3215, #221c08);
+      border: 2px solid #ffd700;
+      padding: 12px;
+      border-radius: 8px;
+      color: #ffd700;
+      font-weight: 900;
+      font-size: 1.15rem;
+      box-shadow: 0 0 16px rgba(255, 215, 0, 0.45);
     }
 
     /* ルール説明モーダル */
@@ -940,13 +1077,34 @@
     </div>
   </div>
 
+  <!-- ゲーム終了！オーバーレイ演出 -->
+  <div id="gameOverOverlay" class="game-over-overlay">
+    <div class="game-over-banner">
+      <div class="game-over-subtext">MINES DEPLETED</div>
+      <div class="game-over-maintext">⛏️ 終了！</div>
+      <div class="game-over-desc">鉱山が枯渇しました！ 結果発表へ...</div>
+    </div>
+  </div>
+
   <!-- リザルト画面 -->
   <div id="resultModal" class="result-backdrop">
     <div class="result-card">
-      <div style="font-size: 1.3rem; font-weight: bold;">鉱山が枯渇！ ゲーム終了</div>
-      <div class="result-winner-box" id="resultWinner">勝者: ---</div>
-      <div style="display: flex; flex-direction: column; gap: 6px;" id="resultRows"></div>
-      <button class="btn btn-join" id="restartBtn">ロビーへ戻る / もう一度遊ぶ</button>
+      <div class="result-title" id="resultTitle">📊 暫定結果発表（爆弾判定前）</div>
+      <div id="resultSubtitle" style="font-size:0.78rem; color:#aaa; margin-top:-4px;">※獲得した得点カードのみで集計中...</div>
+      
+      <!-- スコア順位一覧 -->
+      <div class="result-rows-container" id="resultRows"></div>
+
+      <!-- 爆弾の結果（全員出た後に表示） -->
+      <div class="result-bomb-section" id="resultBombSection" style="display: none;">
+        <div class="result-bomb-title" id="resultBombTitle">💣 爆弾処理フェーズ</div>
+        <div class="result-bomb-list" id="resultBombList"></div>
+      </div>
+
+      <!-- 勝者発表ボックス（最後に表示） -->
+      <div class="result-winner-box" id="resultWinner" style="display: none;">勝者: ---</div>
+      
+      <button class="btn btn-join" id="restartBtn" style="display: none;">ロビーへ戻る / もう一度遊ぶ</button>
     </div>
   </div>
 
@@ -1222,6 +1380,53 @@
             osc.stop(time + note.d);
             time += note.d * 0.95;
           });
+        } catch (e) {}
+      }
+
+      // 9. ゲーム終了合図（ゴォーン！衝撃音）
+      playGameOver() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc1 = this.ctx.createOscillator();
+          const osc2 = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc1.type = 'sawtooth';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(140, this.ctx.currentTime);
+          osc1.frequency.exponentialRampToValueAtTime(45, this.ctx.currentTime + 1.4);
+          osc2.frequency.setValueAtTime(280, this.ctx.currentTime);
+          osc2.frequency.exponentialRampToValueAtTime(70, this.ctx.currentTime + 1.4);
+          gain.gain.setValueAtTime(0.45, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 1.4);
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc1.start();
+          osc2.start();
+          osc1.stop(this.ctx.currentTime + 1.4);
+          osc2.stop(this.ctx.currentTime + 1.4);
+        } catch (e) {}
+      }
+
+      // 10. 順位発表ポン（軽快な打撃音）
+      playRankReveal() {
+        if (!this.enabled) return;
+        this.init();
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(640, this.ctx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.15);
         } catch (e) {}
       }
     }
@@ -1546,6 +1751,9 @@
       soundManager.playDraw();
       socket.emit('restart_game');
       resultModal.style.display = 'none';
+      const overlay = document.getElementById('gameOverOverlay');
+      if (overlay) overlay.style.display = 'none';
+      isGameOverTriggered = false;
     });
 
     // 入室・開始ボタン
@@ -1864,24 +2072,248 @@
 
       // ゲーム終了・リザルト判定
       if (state.extraData && state.extraData.gameOver) {
-        showResults(state.extraData);
+        if (!isGameOverTriggered) {
+          isGameOverTriggered = true;
+          handleGameOverSequence(state.extraData);
+        }
+      } else {
+        isGameOverTriggered = false;
+        const overlay = document.getElementById('gameOverOverlay');
+        if (overlay) overlay.style.display = 'none';
       }
     });
 
-    function showResults(data) {
-      soundManager.playVictory();
-      resultWinner.innerText = `🏆 勝者: ${data.winners.join(', ')} (${data.maxScore}点)`;
+    let isGameOverTriggered = false;
+
+    function handleGameOverSequence(data) {
+      // 1. 「終了！」オーバーレイをドカンと表示
+      soundManager.playGameOver();
+      triggerScreenShake();
+      const overlay = document.getElementById('gameOverOverlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.opacity = '1';
+        overlay.style.animation = 'gameOverZoom 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards';
+      }
+
+      // 2. 2.1秒後に「終了！」オーバーレイをフェードアウトさせ、結果画面を順次開く
+      setTimeout(() => {
+        if (overlay) {
+          overlay.style.animation = 'gameOverFadeOut 0.4s forwards';
+          setTimeout(() => {
+            overlay.style.display = 'none';
+          }, 380);
+        }
+        startResultSequence(data);
+      }, 2100);
+    }
+
+    function startResultSequence(data) {
+      const resultTitle = document.getElementById('resultTitle');
+      const resultSubtitle = document.getElementById('resultSubtitle');
+      const resultRows = document.getElementById('resultRows');
+      const resultBombSection = document.getElementById('resultBombSection');
+      const resultBombList = document.getElementById('resultBombList');
+      const resultWinner = document.getElementById('resultWinner');
+      const restartBtn = document.getElementById('restartBtn');
+
+      resultTitle.innerText = '📊 暫定結果発表（爆弾判定前）';
+      resultSubtitle.innerText = '※獲得した得点カードのみで集計中...';
       resultRows.innerHTML = '';
-      data.results.forEach(r => {
-        const row = document.createElement('div');
-        row.className = 'result-row pop-in';
-        row.innerHTML = `
-          <span style="font-weight:bold;">${r.name} ${r.hasBomb ? '💥(爆弾被弾)' : ''}</span>
-          <span style="color:#ffd700; font-weight:bold; font-size:1rem;">${r.score} 点</span>
-        `;
-        resultRows.appendChild(row);
-      });
+      resultBombList.innerHTML = '';
+      resultBombSection.style.display = 'none';
+      resultWinner.style.display = 'none';
+      restartBtn.style.display = 'none';
+
       resultModal.style.display = 'flex';
+
+      // 1. 爆弾判定前の暫定順位付け (initialScoreの降順)
+      const provisionalResults = data.results.map(r => ({
+        ...r,
+        tempScore: typeof r.initialScore === 'number' ? r.initialScore : r.score
+      }));
+      provisionalResults.sort((a, b) => b.tempScore - a.tempScore);
+      const totalCount = provisionalResults.length;
+
+      let pRank = 1;
+      provisionalResults.forEach((p, idx) => {
+        if (idx > 0 && p.tempScore < provisionalResults[idx - 1].tempScore) {
+          pRank = idx + 1;
+        }
+        p.provRank = pRank;
+        p.isLast = (p.tempScore === provisionalResults[provisionalResults.length - 1].tempScore);
+      });
+
+      // 最下位から順番に発表するため、昇順に並べ替えて1人ずつ出す
+      const revealOrder = [...provisionalResults].reverse();
+      let currentRevealIndex = 0;
+
+      function revealNextProvisionalPlayer() {
+        if (currentRevealIndex < revealOrder.length) {
+          const r = revealOrder[currentRevealIndex];
+          const row = document.createElement('div');
+
+          let rankClass = '';
+          let badgeClass = 'badge-rank-last';
+          let rankLabel = `暫定${r.provRank}位`;
+
+          if (r.provRank === 1) {
+            rankClass = 'rank-1';
+            badgeClass = 'badge-rank-1';
+            rankLabel = totalCount > 1 ? '👑 暫定1位' : '暫定1位';
+          } else if (r.isLast && totalCount > 1) {
+            rankClass = 'rank-last';
+            badgeClass = 'badge-rank-last';
+            rankLabel = `最下位 (${r.provRank}位)`;
+          } else if (r.provRank === 2) {
+            badgeClass = 'badge-rank-2';
+            rankLabel = '暫定2位';
+          } else if (r.provRank === 3) {
+            badgeClass = 'badge-rank-3';
+            rankLabel = '暫定3位';
+          }
+
+          row.className = `result-row pop-in ${rankClass}`;
+          row.innerHTML = `
+            <div style="display:flex; align-items:center;">
+              <span class="result-rank-badge ${badgeClass}">${rankLabel}</span>
+              <span style="font-weight:bold; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</span>
+              ${r.hasBomb ? '<span style="font-size:0.7rem; color:#ff6b6b; margin-left:4px; font-weight:bold;">💥爆弾</span>' : ''}
+            </div>
+            <div style="font-size:1.05rem; font-weight:900; color:#ffd700;">
+              ${r.tempScore} <span style="font-size:0.75rem; color:#aaa;">点</span>
+            </div>
+          `;
+          resultRows.appendChild(row);
+
+          // 発表効果音
+          if (r.provRank === 1) {
+            soundManager.playGold();
+          } else {
+            soundManager.playRankReveal();
+          }
+
+          currentRevealIndex++;
+          setTimeout(revealNextProvisionalPlayer, 850);
+        } else {
+          // 順位が出終わった後に、爆弾の処理を開始！
+          setTimeout(revealBombProcessing, 850);
+        }
+      }
+
+      // 2. 爆弾の処理フェーズ
+      function revealBombProcessing() {
+        resultBombList.innerHTML = '';
+        const bombPlayers = data.results.filter(r => r.hasBomb);
+
+        if (bombPlayers.length > 0) {
+          soundManager.playBomb();
+          triggerScreenShake();
+          data.results.forEach(r => {
+            const item = document.createElement('div');
+            if (r.hasBomb) {
+              item.className = 'result-bomb-item';
+              if (r.destroyedCard) {
+                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！【${r.destroyedCard.name} (${r.destroyedCard.value}点)】が破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${r.destroyedCard.value}点)</span>`;
+              } else {
+                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！(破壊できる得点カードなし)`;
+              }
+            } else {
+              item.className = 'result-bomb-item safe';
+              item.innerHTML = `🛡️ <span style="color:#aaa;">${r.name}: 爆弾なし（無事）</span>`;
+            }
+            resultBombList.appendChild(item);
+          });
+        } else {
+          soundManager.playEvent();
+          const item = document.createElement('div');
+          item.className = 'result-bomb-item safe';
+          item.innerHTML = `🕊️ <span style="color:#4ade80; font-weight:bold;">誰も爆弾を持っていませんでした！全員無事！</span>`;
+          resultBombList.appendChild(item);
+        }
+
+        resultBombSection.style.display = 'flex';
+        resultBombSection.classList.add('pop-in');
+
+        // 爆弾処理後に、最終的な順位を一度に表示！
+        setTimeout(revealFinalRankingsAllAtOnce, 1700);
+      }
+
+      // 3. 爆弾処理後の最終順位を一度に表示！
+      function revealFinalRankingsAllAtOnce() {
+        resultTitle.innerHTML = '🏆 最終結果発表！';
+        resultSubtitle.innerHTML = '<span style="color:#ffd700; font-weight:bold;">※爆弾処理完了！最終順位が確定しました</span>';
+
+        // 最終スコア順で整列
+        const finalResults = [...data.results].map(r => ({
+          ...r,
+          finScore: typeof r.finalScore === 'number' ? r.finalScore : r.score
+        }));
+        finalResults.sort((a, b) => b.finScore - a.finScore);
+
+        let finalRank = 1;
+        finalResults.forEach((p, idx) => {
+          if (idx > 0 && p.finScore < finalResults[idx - 1].finScore) {
+            finalRank = idx + 1;
+          }
+          p.finalRank = finalRank;
+        });
+
+        // 順位一覧を最終順位で一度に上書き描画！
+        resultRows.innerHTML = '';
+        finalResults.forEach(r => {
+          const row = document.createElement('div');
+          let rankClass = '';
+          let badgeClass = 'badge-rank-last';
+          let rankLabel = `${r.finalRank}位`;
+
+          if (r.finalRank === 1) {
+            rankClass = 'rank-1';
+            badgeClass = 'badge-rank-1';
+            rankLabel = totalCount > 1 ? '👑 1位' : '1位';
+          } else if (r.finalRank === 2) {
+            badgeClass = 'badge-rank-2';
+            rankLabel = '2位';
+          } else if (r.finalRank === 3) {
+            badgeClass = 'badge-rank-3';
+            rankLabel = '3位';
+          }
+
+          // 爆弾で点数が引かれたかどうかの表示
+          const scoreDiff = (typeof r.initialScore === 'number' && r.initialScore !== r.finScore)
+            ? `<div style="font-size:0.7rem; color:#ff6b6b;">(${r.initialScore}点 ➔ 💥 -${r.initialScore - r.finScore}点)</div>`
+            : '';
+
+          row.className = `result-row pop-in ${rankClass}`;
+          row.innerHTML = `
+            <div style="display:flex; align-items:center;">
+              <span class="result-rank-badge ${badgeClass}">${rankLabel}</span>
+              <span style="font-weight:bold; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</span>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:1.15rem; font-weight:900; color:#ffd700;">
+                ${r.finScore} <span style="font-size:0.75rem; color:#aaa;">点</span>
+              </div>
+              ${scoreDiff}
+            </div>
+          `;
+          resultRows.appendChild(row);
+        });
+
+        // 勝者発表
+        soundManager.playVictory();
+        resultWinner.innerText = `🏆 勝者: ${data.winners.join(', ')} (${data.maxScore}点)`;
+        resultWinner.style.display = 'block';
+        resultWinner.classList.add('pop-in');
+
+        setTimeout(() => {
+          restartBtn.style.display = 'block';
+          restartBtn.classList.add('pop-in');
+        }, 500);
+      }
+
+      // 最初のプレイヤー（最下位）の発表を開始
+      setTimeout(revealNextProvisionalPlayer, 500);
     }
 
     // 調査イベントの鉱山中身表示

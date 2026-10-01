@@ -248,13 +248,29 @@
       border-left-color: #1e90ff;
       color: #e0f2fe;
     }
+    /* 採掘結果ログの条件別カラー: ダイヤは青系、金はゴールド系、石炭はデフォルト */
+    .log-item-diamond {
+      border-left-color: #38bdf8;
+      background: linear-gradient(90deg, rgba(14, 116, 144, 0.45), rgba(56, 189, 248, 0.16));
+      color: #e0f2fe;
+    }
+    .log-item-gold {
+      border-left-color: #ffd700;
+      background: linear-gradient(90deg, rgba(180, 83, 9, 0.45), rgba(255, 215, 0, 0.18));
+      color: #fef08a;
+    }
+    .log-item-coal {
+      border-left-color: #666;
+      background: rgba(255, 255, 255, 0.04);
+      color: #ccc;
+    }
     .log-item-event {
       border-left-color: #4ade80;
       color: #dcfce7;
     }
     .log-item-bomb {
       border-left-color: #ff4500;
-      background: rgba(255, 69, 0, 0.12);
+      background: rgba(255, 69, 0, 0.14);
       color: #ffedd5;
     }
     .log-item-latest {
@@ -262,6 +278,18 @@
       background: rgba(255, 215, 0, 0.13);
       color: #fff;
       font-weight: bold;
+    }
+    .log-item-diamond.log-item-latest {
+      border-left-color: #70d6ff;
+      background: linear-gradient(90deg, rgba(14, 116, 144, 0.65), rgba(56, 189, 248, 0.28));
+      color: #fff;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+    }
+    .log-item-gold.log-item-latest {
+      border-left-color: #ffd700;
+      background: linear-gradient(90deg, rgba(180, 83, 9, 0.65), rgba(255, 215, 0, 0.28));
+      color: #fff;
+      box-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
     }
 
     /* 自分の手札エリア */
@@ -526,6 +554,107 @@
       background: #3d1414;
       border-color: #ff6b6b;
       box-shadow: 0 0 10px rgba(255, 107, 107, 0.45);
+    }
+
+    /* イベントカード中央発動演出 */
+    .event-showcase-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 280;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle at center, rgba(0, 0, 0, 0.6) 0%, rgba(0, 0, 0, 0.25) 60%, transparent 100%);
+    }
+
+    .event-showcase-card {
+      width: 175px;
+      height: 235px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #1f6b40, #0f3d23);
+      border: 3px solid #ffd700;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.9), 0 0 35px rgba(255, 215, 0, 0.75), 0 0 50px rgba(74, 222, 128, 0.5);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 10px;
+      text-align: center;
+      color: #fff;
+      transform-origin: center center;
+    }
+
+    .event-showcase-user {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: #ffd700;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 3px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 215, 0, 0.6);
+      max-width: 90%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .event-showcase-icon {
+      font-size: 3.8rem;
+      line-height: 1;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,0.6));
+      animation: showcaseIconPulse 0.7s infinite alternate ease-in-out;
+    }
+
+    .event-showcase-name {
+      font-size: 1.55rem;
+      font-weight: 900;
+      color: #ffd700;
+      letter-spacing: 2px;
+      text-shadow: 0 0 16px rgba(255, 215, 0, 0.9), 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    .event-showcase-desc {
+      font-size: 0.73rem;
+      color: #eee;
+      line-height: 1.3;
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 6px;
+      padding: 4px 8px;
+      width: 100%;
+    }
+
+    @keyframes showcaseIconPulse {
+      0% { transform: scale(0.95); }
+      100% { transform: scale(1.12); }
+    }
+
+    /* 手札から中央への移動＆中央での強調アニメーション */
+    @keyframes eventCardFlyToCenter {
+      0% {
+        transform: translate(var(--start-x), var(--start-y)) scale(0.35) rotate(-15deg);
+        opacity: 0.2;
+      }
+      35% {
+        transform: translate(0, 0) scale(1.15) rotate(3deg);
+        opacity: 1;
+      }
+      50% {
+        transform: translate(0, 0) scale(1) rotate(0deg);
+        opacity: 1;
+      }
+      82% {
+        transform: translate(0, 0) scale(1.03) rotate(0deg);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--end-x), var(--end-y)) scale(0.2) rotate(25deg);
+        opacity: 0;
+      }
+    }
+
+    .anim-event-showcase {
+      animation: eventCardFlyToCenter 1.65s cubic-bezier(0.2, 0.85, 0.3, 1) forwards;
     }
 
     /* ゲーム終了！オーバーレイ演出 */
@@ -1085,6 +1214,16 @@
   <!-- ポップアップ演出コンテナ -->
   <div id="toastContainer" class="toast-container"></div>
 
+  <!-- イベントカード中央発動演出コンテナ -->
+  <div id="eventShowcaseOverlay" class="event-showcase-overlay">
+    <div id="eventShowcaseCard" class="event-showcase-card">
+      <div class="event-showcase-user" id="eventShowcaseUser">PLAYER</div>
+      <div class="event-showcase-icon" id="eventShowcaseIcon">✨</div>
+      <div class="event-showcase-name" id="eventShowcaseName">イベント名</div>
+      <div class="event-showcase-desc" id="eventShowcaseDesc">効果説明</div>
+    </div>
+  </div>
+
   <!-- 自分のエリア (画面下部) -->
   <div class="my-area">
     <div class="section-label">
@@ -1189,10 +1328,10 @@
           <div class="rules-section-title">手番（ターン）でやること</div>
           <p>自分のターンが来たら、<strong style="color:#1e90ff;">「行動する」</strong>を押します。</p>
           <div class="rule-item" style="margin-top:6px;">
-            <span class="rule-badge badge-blue">つるはし (14枚 / 70%)</span> 鉱山から <strong>1枚</strong> 採掘 ＆ イベント山札から <strong>1枚</strong> 獲得（非公開）！
+            <span class="rule-badge badge-blue">つるはし (14枚 / 70%)</span> 鉱山から <strong>1枚</strong> 採掘（他プレイヤーには非公開） ＆ イベント山札から <strong>1枚</strong> 獲得（非公開）！
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-blue">ドリル (6枚 / 30%)</span> 鉱山から <strong>2枚</strong> 採掘して手札へ！
+            <span class="rule-badge badge-blue">ドリル (6枚 / 30%)</span> 鉱山から <strong>2枚</strong> 採掘（他プレイヤーには非公開）して手札へ！
           </div>
         </div>
 
@@ -1208,7 +1347,7 @@
             <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 5枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-red">💥 爆弾 (2枚)</span> ゲーム終了時に所持していると、<strong>自分の得点カードがランダムで1枚破壊</strong>されます！
+            <span class="rule-badge badge-red">💥 爆弾 (2枚)</span> ゲーム終了時に所持していると、<strong>所持枚数分（2枚なら2枚、3枚なら3枚）、ダイヤ ➔ 金 ➔ 石炭の順に優先的に得点カードが破壊</strong>されます！
           </div>
         </div>
 
@@ -2077,8 +2216,17 @@
           const item = document.createElement('div');
           
           let typeClass = 'log-item-default';
+          // 爆弾・爆破ログ
           if (logText.includes('爆弾') || logText.includes('爆破') || logText.includes('💣')) {
             typeClass = 'log-item-bomb';
+          }
+          // 採掘結果（ダイヤは青系、金はゴールド系、石炭はデフォルト）
+          else if (logText.includes('ダイヤ') || logText.includes('💎')) {
+            typeClass = 'log-item-diamond';
+          } else if (logText.includes('金(') || logText.includes('金（') || logText.includes('金2点') || logText.includes('金獲得') || logText.includes('ゴールド') || (logText.includes('金') && (logText.includes('採掘') || logText.includes('つるはし') || logText.includes('ドリル')))) {
+            typeClass = 'log-item-gold';
+          } else if (logText.includes('石炭')) {
+            typeClass = 'log-item-coal';
           } else if (logText.includes('つるはし') || logText.includes('ドリル') || logText.includes('⛏️') || logText.includes('⚡')) {
             typeClass = 'log-item-action';
           } else if (logText.includes('イベント') || logText.includes('調査') || logText.includes('賄賂') || logText.includes('山分け') || logText.includes('公開') || logText.includes('強奪') || logText.includes('取引') || logText.includes('🔍') || logText.includes('💰') || logText.includes('🤝') || logText.includes('👁️') || logText.includes('🦹') || logText.includes('🔄')) {
@@ -2209,10 +2357,11 @@
             card.className = `card-stack pop-in ${item.cssClass}`;
 
             if (item === counts.bomb) {
+              const bombWarningText = item.count > 1 ? `⚠️ ${item.count}枚分優先破壊` : '⚠️ ダイヤ優先破壊';
               card.innerHTML = `
                 <div class="card-stack-title">💥 爆弾</div>
                 <div class="card-stack-count">×${item.count}</div>
-                <div class="card-stack-subtotal" style="background:#800; color:#fff;">⚠️ 1枚破壊</div>
+                <div class="card-stack-subtotal" style="background:#800; color:#fff;">${bombWarningText}</div>
               `;
             } else {
               const subtotal = item.value * item.count;
@@ -2440,7 +2589,7 @@
             <div style="display:flex; align-items:center;">
               <span class="result-rank-badge ${badgeClass}">${rankLabel}</span>
               <span style="font-weight:bold; max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.name}</span>
-              ${r.hasBomb ? '<span style="font-size:0.7rem; color:#ff6b6b; margin-left:4px; font-weight:bold;">💥爆弾</span>' : ''}
+              ${r.hasBomb ? `<span style="font-size:0.7rem; color:#ff6b6b; margin-left:4px; font-weight:bold;">💥爆弾${(r.bombCount || 1) > 1 ? (r.bombCount) + '枚' : ''}</span>` : ''}
             </div>
             <div style="font-size:1.05rem; font-weight:900; color:#ffd700;">
               ${r.tempScore} <span style="font-size:0.75rem; color:#aaa;">点</span>
@@ -2475,10 +2624,21 @@
             const item = document.createElement('div');
             if (r.hasBomb) {
               item.className = 'result-bomb-item';
-              if (r.destroyedCard) {
-                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！【${r.destroyedCard.name} (${r.destroyedCard.value}点)】が破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${r.destroyedCard.value}点)</span>`;
+              const bombCount = r.bombCount || 1;
+              const destroyedList = (r.destroyedCards && r.destroyedCards.length > 0)
+                ? r.destroyedCards
+                : (r.destroyedCard ? [r.destroyedCard] : []);
+
+              if (destroyedList.length > 0) {
+                const cardsText = destroyedList.map(c => `【${c.name} (${c.value}点)】`).join(' ＆ ');
+                const totalLost = (typeof r.totalDeductedScore === 'number')
+                  ? r.totalDeductedScore
+                  : destroyedList.reduce((sum, c) => sum + (c.value || 0), 0);
+                
+                const countBadge = bombCount > 1 ? ` (所持${bombCount}枚 ➔ ${destroyedList.length}枚破壊)` : '';
+                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！${countBadge}<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ ${cardsText} が優先破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${totalLost}点)</span>`;
               } else {
-                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！(破壊できる得点カードなし)`;
+                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾${bombCount > 1 ? bombCount + '枚' : ''}爆発！ (破壊できる得点カードなし)`;
               }
             } else {
               item.className = 'result-bomb-item safe';
@@ -2584,6 +2744,86 @@
       const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c}`).join('\n');
       showModal('【調査完了】鉱山の中身', formatted || '鉱山は空です');
     });
+
+    // イベントカード使用時の中央演出アニメーション
+    function playEventCardShowcase(eventData) {
+      const overlay = document.getElementById('eventShowcaseOverlay');
+      const cardEl = document.getElementById('eventShowcaseCard');
+      const userEl = document.getElementById('eventShowcaseUser');
+      const iconEl = document.getElementById('eventShowcaseIcon');
+      const nameEl = document.getElementById('eventShowcaseName');
+      const descEl = document.getElementById('eventShowcaseDesc');
+      if (!overlay || !cardEl) return;
+
+      const isMine = currentClientState && (eventData.playerId === currentClientState.myId);
+      const card = eventData.card;
+      const icon = EVENT_ICONS[card.id] || '✨';
+      const info = EVENT_INFO[card.id] || { title: card.name, desc: '' };
+
+      userEl.innerText = isMine ? 'あなたが使用！' : `${eventData.playerName} が使用！`;
+      iconEl.innerText = icon;
+      nameEl.innerText = card.name;
+      descEl.innerText = info.desc ? info.desc.split('\n')[0] : '';
+
+      // 開始座標（手札または対戦相手）
+      let startX = 0;
+      let startY = 240;
+
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight / 2;
+
+      if (isMine) {
+        const myEventEl = document.getElementById('myEventCards');
+        if (myEventEl) {
+          const rect = myEventEl.getBoundingClientRect();
+          startX = rect.left + rect.width / 2 - centerX;
+          startY = rect.top + rect.height / 2 - centerY;
+        }
+      } else {
+        const oppEl = document.querySelector('.opponent-card.active') || document.getElementById('opponentsArea');
+        if (oppEl) {
+          const rect = oppEl.getBoundingClientRect();
+          startX = rect.left + rect.width / 2 - centerX;
+          startY = rect.top + rect.height / 2 - centerY;
+        } else {
+          startY = -240;
+        }
+      }
+
+      // 終了座標（イベント山札の底に戻る）
+      let endX = -100;
+      let endY = -120;
+      const eventDeckEl = document.getElementById('deckEvent');
+      if (eventDeckEl) {
+        const deckRect = eventDeckEl.getBoundingClientRect();
+        endX = deckRect.left + deckRect.width / 2 - centerX;
+        endY = deckRect.top + deckRect.height / 2 - centerY;
+      }
+
+      cardEl.style.setProperty('--start-x', `${startX}px`);
+      cardEl.style.setProperty('--start-y', `${startY}px`);
+      cardEl.style.setProperty('--end-x', `${endX}px`);
+      cardEl.style.setProperty('--end-y', `${endY}px`);
+
+      cardEl.classList.remove('anim-event-showcase');
+      void cardEl.offsetWidth; // リフロー
+      cardEl.classList.add('anim-event-showcase');
+
+      overlay.style.display = 'flex';
+      soundManager.playEvent();
+
+      // カードがイベント山札に吸い込まれる瞬間に山札バウンド演出
+      setTimeout(() => {
+        triggerDeckBounce('deckEvent');
+      }, 1450);
+
+      setTimeout(() => {
+        overlay.style.display = 'none';
+        cardEl.classList.remove('anim-event-showcase');
+      }, 1620);
+    }
+
+    socket.on('event_card_played', playEventCardShowcase);
 
     // エラーメッセージ
     socket.on('error_message', (msg) => {

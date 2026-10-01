@@ -93,6 +93,17 @@ function broadcastState(extraData = null) {
         isCurrentTurn: currentTurnPlayer && currentTurnPlayer.id === other.id
       }));
 
+    const playerLogs = gameState.logs.slice(-30).map(logItem => {
+      if (typeof logItem === 'string') return logItem;
+      if (logItem && typeof logItem === 'object') {
+        if (logItem.playerId === p.id && logItem.privateText) {
+          return logItem.privateText;
+        }
+        return logItem.publicText || '';
+      }
+      return String(logItem);
+    });
+
     const clientState = {
       myId: p.id,
       isGameStarted: gameState.isGameStarted,
@@ -109,7 +120,7 @@ function broadcastState(extraData = null) {
       mustDiscard: gameState.pendingDiscardPlayerId === p.id,
       pendingDiscardPlayerId: gameState.pendingDiscardPlayerId,
       pendingDiscardPlayerName: discardPlayer ? discardPlayer.name : null,
-      logs: gameState.logs.slice(-30),
+      logs: playerLogs,
       extraData: extraData
     };
 
@@ -124,11 +135,12 @@ function nextTurn() {
 }
 
 function drawFromMine(player, count) {
-  let drawn = 0;
+  let drawn = [];
   for (let i = 0; i < count; i++) {
     if (gameState.decks.mineDeck.length > 0) {
-      player.scoreCards.push(gameState.decks.mineDeck.pop());
-      drawn++;
+      const c = gameState.decks.mineDeck.pop();
+      player.scoreCards.push(c);
+      drawn.push(c);
     }
   }
   return drawn;
@@ -201,23 +213,37 @@ io.on('connection', (socket) => {
     gameState.discardActionDeck.push(drawn);
 
     if (drawn === 'つるはし') {
-      const drawnMine = drawFromMine(currentPlayer, 1);
-      let evText = '';
+      const drawnCards = drawFromMine(currentPlayer, 1);
+      let evTextPrivate = '';
+      let evTextPublic = '';
       if (gameState.decks.eventDeck.length > 0) {
         const evCard = gameState.decks.eventDeck.pop();
         const withinLimit = addEventCardToPlayer(currentPlayer, evCard);
         if (withinLimit) {
-          evText = '＆イベント1枚(非公開)';
+          evTextPrivate = ' ＆ イベント1枚';
+          evTextPublic = ' ＆ イベント1枚(非公開)';
         } else {
-          evText = '＆イベント1枚(※手札上限超過・捨てるカードを選択中)';
+          evTextPrivate = ' ＆ イベント1枚(※手札上限超過・捨てるカードを選択中)';
+          evTextPublic = ' ＆ イベント1枚(※手札上限超過・捨てるカードを選択中)';
         }
       } else {
-        evText = '（※イベント山札空）';
+        evTextPrivate = '（※イベント山札空）';
+        evTextPublic = '（※イベント山札空）';
       }
-      gameState.logs.push(`⛏️ ${currentPlayer.name} は【つるはし】で鉱山${drawnMine}枚${evText}を獲得`);
+      const cardsText = drawnCards.map(c => c.type === 'bomb' ? '💥爆弾' : `${c.name}(${c.value}点)`).join('・') || '0枚';
+      gameState.logs.push({
+        playerId: currentPlayer.id,
+        privateText: `⛏️ あなた は【つるはし】で【${cardsText}】を採掘！${evTextPrivate}`,
+        publicText: `⛏️ ${currentPlayer.name} は【つるはし】で鉱山${drawnCards.length}枚獲得！${evTextPublic}`
+      });
     } else if (drawn === 'ドリル') {
-      const drawnMine = drawFromMine(currentPlayer, 2);
-      gameState.logs.push(`⚡ ${currentPlayer.name} は【ドリル】で鉱山から${drawnMine}枚採掘`);
+      const drawnCards = drawFromMine(currentPlayer, 2);
+      const cardsText = drawnCards.map(c => c.type === 'bomb' ? '💥爆弾' : `${c.name}(${c.value}点)`).join('・') || '0枚';
+      gameState.logs.push({
+        playerId: currentPlayer.id,
+        privateText: `⚡ あなた は【ドリル】で【${cardsText}】を採掘！`,
+        publicText: `⚡ ${currentPlayer.name} は【ドリル】で鉱山から${drawnCards.length}枚採掘`
+      });
     }
 
     // 鉱山切れチェック
@@ -276,6 +302,13 @@ io.on('connection', (socket) => {
 
     const usedCard = currentPlayer.eventCards.splice(cardIndex, 1)[0];
     gameState.logs.push(`${currentPlayer.name} はイベント【${usedCard.name}】を使用しました`);
+
+    // 全員にイベントカード使用・中央表示演出を通知
+    io.emit('event_card_played', {
+      playerId: currentPlayer.id,
+      playerName: currentPlayer.name,
+      card: { id: usedCard.id, name: usedCard.name }
+    });
 
     // 使用後はイベント山札の一番下に戻す
     gameState.decks.eventDeck.unshift(usedCard);
@@ -487,33 +520,54 @@ function endGame() {
 
   // 勝敗計算＆爆弾処理
   let results = gameState.players.map(p => {
-    let hasBomb = p.scoreCards.some(c => c.type === 'bomb');
     let cards = [...p.scoreCards];
-    let destroyedCard = null;
+    const bombCount = cards.filter(c => c.type === 'bomb').length;
+    let destroyedCards = [];
 
     // 爆弾判定前の暫定得点
-    let initialScore = p.scoreCards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
+    let initialScore = p.scoreCards.reduce((sum, c) => sum + (typeof c.value === 'number' && c.type !== 'bomb' ? c.value : 0), 0);
 
-    // 爆弾所持の場合、爆弾以外の得点からランダム1枚廃棄
-    if (hasBomb) {
-      let nonBombIndices = [];
-      cards.forEach((c, idx) => { if (c.type !== 'bomb') nonBombIndices.push(idx); });
-      if (nonBombIndices.length > 0) {
-        let discardIdx = nonBombIndices[Math.floor(Math.random() * nonBombIndices.length)];
-        destroyedCard = cards[discardIdx];
-        cards.splice(discardIdx, 1);
+    // 爆弾所持の場合、爆弾の枚数分だけダイヤ ➔ 金 ➔ 石炭の順に優先的に破壊
+    for (let b = 0; b < bombCount; b++) {
+      const priorityOrder = ['ダイヤ', '金', '石炭'];
+      let targetIdx = -1;
+
+      for (const cardName of priorityOrder) {
+        targetIdx = cards.findIndex(c => c.type !== 'bomb' && c.name === cardName);
+        if (targetIdx !== -1) break;
+      }
+
+      // フォールバック: 点数の高い順
+      if (targetIdx === -1) {
+        let maxVal = -1;
+        cards.forEach((c, idx) => {
+          if (c.type !== 'bomb' && typeof c.value === 'number' && c.value > maxVal) {
+            maxVal = c.value;
+            targetIdx = idx;
+          }
+        });
+      }
+
+      if (targetIdx !== -1) {
+        const removed = cards.splice(targetIdx, 1)[0];
+        destroyedCards.push(removed);
+      } else {
+        break; // 破壊できる得点カードがなくなった場合
       }
     }
 
     // 爆弾処理後の最終得点集計 (爆弾は0点扱い)
-    let finalScore = cards.reduce((sum, c) => sum + (typeof c.value === 'number' ? c.value : 0), 0);
+    let finalScore = cards.reduce((sum, c) => sum + (typeof c.value === 'number' && c.type !== 'bomb' ? c.value : 0), 0);
     return {
       name: p.name,
       initialScore: initialScore,
       finalScore: finalScore,
       score: finalScore, // 後方互換用
-      hasBomb: hasBomb,
-      destroyedCard: destroyedCard ? { name: destroyedCard.name, value: destroyedCard.value } : null,
+      hasBomb: bombCount > 0,
+      bombCount: bombCount,
+      destroyedCards: destroyedCards.map(c => ({ name: c.name, value: c.value })),
+      destroyedCard: destroyedCards[0] ? { name: destroyedCards[0].name, value: destroyedCards[0].value } : null,
+      totalDeductedScore: initialScore - finalScore,
       originalCount: p.scoreCards.length
     };
   });

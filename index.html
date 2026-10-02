@@ -1190,7 +1190,7 @@
       <div class="decks-container">
         <div class="deck deck-mine" id="deckMine" title="鉱山山札（タップ不可）">
           <span class="deck-label">鉱山</span>
-          <span class="deck-count" id="mineCount">32</span>
+          <span class="deck-count" id="mineCount">33</span>
         </div>
         <div class="deck deck-event" id="deckEvent" title="イベント山札（タップ不可）">
           <span class="deck-label">イベント</span>
@@ -1336,7 +1336,7 @@
         </div>
 
         <div>
-          <div class="rules-section-title">鉱山カード（全32枚）</div>
+          <div class="rules-section-title">鉱山カード（全33枚）</div>
           <div class="rule-item">
             <span class="rule-badge" style="background:#444; color:#fff;">石炭 (1点)</span> 15枚
           </div>
@@ -1347,7 +1347,7 @@
             <span class="rule-badge" style="background:#70d6ff; color:#003049;">ダイヤ (3点)</span> 5枚
           </div>
           <div class="rule-item">
-            <span class="rule-badge badge-red">💥 爆弾 (2枚)</span> ゲーム終了時に所持していると、<strong>所持枚数分（2枚なら2枚、3枚なら3枚）、ダイヤ ➔ 金 ➔ 石炭の順に優先的に得点カードが破壊</strong>されます！
+            <span class="rule-badge badge-red">💥 爆弾 (3枚)</span> ゲーム終了時に所持していると、<strong>所持枚数分（2枚なら2枚、3枚なら3枚）、ダイヤ ➔ 金 ➔ 石炭の順に優先的に得点カードが破壊</strong>されます！
           </div>
         </div>
 
@@ -2636,7 +2636,7 @@
                   : destroyedList.reduce((sum, c) => sum + (c.value || 0), 0);
                 
                 const countBadge = bombCount > 1 ? ` (所持${bombCount}枚 ➔ ${destroyedList.length}枚破壊)` : '';
-                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！${countBadge}<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ ${cardsText} が優先破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${totalLost}点)</span>`;
+                item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！${countBadge}<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ ${cardsText} を破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${totalLost}点)</span>`;
               } else {
                 item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾${bombCount > 1 ? bombCount + '枚' : ''}爆発！ (破壊できる得点カードなし)`;
               }

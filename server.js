@@ -31,12 +31,12 @@ let gameState = {
 };
 
 function initializeDecks() {
-  // 鉱山: 32枚 (石炭1点x15, 金2点x10, ダイヤ3点x5, 爆弾x2)
+  // 鉱山: 33枚 (石炭1点x15, 金2点x10, ダイヤ3点x5, 爆弾x3)
   let mine = [];
   for (let i = 0; i < 15; i++) mine.push({ type: 'score', name: '石炭', value: 1 });
   for (let i = 0; i < 10; i++) mine.push({ type: 'score', name: '金', value: 2 });
   for (let i = 0; i < 5; i++) mine.push({ type: 'score', name: 'ダイヤ', value: 3 });
-  for (let i = 0; i < 2; i++) mine.push({ type: 'bomb', name: '爆弾', value: 0 });
+  for (let i = 0; i < 3; i++) mine.push({ type: 'bomb', name: '爆弾', value: 0 });
 
   // 行動: 20枚 (つるはし:ドリル = 7:3 -> つるはしx14, ドリルx6)
   let action = [];

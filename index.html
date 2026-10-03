@@ -1194,7 +1194,7 @@
         </div>
         <div class="deck deck-event" id="deckEvent" title="イベント山札（タップ不可）">
           <span class="deck-label">イベント</span>
-          <span class="deck-count" id="eventCount">13</span>
+          <span class="deck-count" id="eventCount">15</span>
         </div>
       </div>
 
@@ -1280,6 +1280,23 @@
     </div>
   </div>
 
+  <!-- 調査イベントのカード選択モーダル -->
+  <div id="surveyModal" class="dialog-backdrop">
+    <div class="dialog-card" style="max-width: 360px;">
+      <div class="dialog-title" style="color: #70d6ff; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <span>🔍 鉱山の調査（最大5枚）</span>
+      </div>
+      <div style="font-size: 0.82rem; color: #ddd; line-height: 1.4;">
+        鉱山山札から引いた5枚です。<br><strong style="color: #ffd700;">手札に加えるカードを1枚選んでください</strong>。
+        <div style="font-size: 0.72rem; color: #70d6ff; margin-top: 3px;">※選んだカードや候補は他プレイヤーには非公開です</div>
+      </div>
+      <div class="trade-options-container" id="surveyCardsContainer" style="max-height: 230px; margin-top: 8px;"></div>
+      <button class="dialog-btn" id="confirmSurveyBtn" type="button" style="background: linear-gradient(135deg, #1e90ff, #00bfff); color: #fff; width: 100%; margin-top: 10px; font-weight: bold; padding: 11px; box-shadow: 0 0 10px rgba(30,144,255,0.4);">
+        ✔ このカードを獲得して手札へ
+      </button>
+    </div>
+  </div>
+
   <!-- ゲーム終了！オーバーレイ演出 -->
   <div id="gameOverOverlay" class="game-over-overlay">
     <div class="game-over-banner">
@@ -1352,8 +1369,9 @@
         </div>
 
         <div>
-          <div class="rules-section-title">イベントカード（全13枚 / 手札上限4枚）</div>
+          <div class="rules-section-title">イベントカード（全15枚 / 手札上限4枚）</div>
           <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。手札は最大4枚まで持て、5枚目を引いたときは捨てるカードを自分で選んで山札の底に戻します。</p>
+          <div class="rule-item"><strong>🔍 調査 (2枚)</strong>: 鉱山から5枚見て、その中から1枚選んで手札へ！（他プレイヤーには非公開）</div>
           <div class="rule-item"><strong>💣 爆破 (2枚)</strong>: 爆弾を持つプレイヤーは爆弾を鉱山に戻し、得点カードをランダムに3枚破壊！（誰も爆弾が無ければ不発）</div>
           <div class="rule-item"><strong>💰 賄賂 (2枚)</strong>: 自分の最小得点カード1枚を鉱山に戻し、イベント山札から2枚引く</div>
           <div class="rule-item"><strong>🤝 山分け (1枚)</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
@@ -1810,6 +1828,7 @@
     const eventConfirmOkBtn = document.getElementById('eventConfirmOkBtn');
 
     const EVENT_INFO = {
+      'survey': { title: '🔍 調査', desc: '鉱山山札から5枚見て、その中から好きなカードを1枚選んで手札に加えます。\n（※選んだカードと内容は他プレイヤーには非公開です）' },
       'blast': { title: '💣 爆破', desc: '爆弾を持つプレイヤーは、爆弾を鉱山に戻し、得点カードをランダムに3枚破壊します！\n（※誰も爆弾を持っていなければ不発となります）' },
       'bribe': { title: '💰 賄賂', desc: '自分の得点カードの中で一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引きます。\n（※戻せる得点がない場合は不発となります。手札上限は4枚です）' },
       'share': { title: '🤝 山分け', desc: '全プレイヤーの得点カードを一旦回収し、時計回りに1枚ずつ再分配します！' },
@@ -1819,6 +1838,7 @@
     };
 
     const EVENT_ICONS = {
+      'survey': '🔍',
       'blast': '💣',
       'bribe': '💰',
       'share': '🤝',
@@ -2260,6 +2280,9 @@
             triggerDeckBounce('deckMine');
             triggerDrawFlyAnimation('drill');
             showToast('⚡ ドリル！ 2枚採掘');
+          } else if (currentLog.includes('調査') || currentLog.includes('🔍')) {
+            soundManager.playEvent();
+            showToast('🔍 調査！ 鉱山から1枚選んで獲得');
           } else if (currentLog.includes('爆破') || currentLog.includes('💣')) {
             soundManager.playBomb();
             triggerScreenShake();
@@ -2404,6 +2427,7 @@
           const card = document.createElement('div');
           card.className = 'card card-event pop-in';
           const icon = EVENT_ICONS[c.id] || (
+            c.name.includes('調査') ? '🔍' :
             c.name.includes('爆破') ? '💣' :
             c.name.includes('賄賂') ? '💰' :
             c.name.includes('山分け') ? '🤝' :
@@ -2416,7 +2440,7 @@
             <span class="card-event-name">${c.name}</span>
           `;
           card.title = `${icon} ${c.name}（タップして使用）`;
-          if (state.isMyTurn && !state.mustDiscard) {
+          if (state.isMyTurn && !state.mustDiscard && !state.isSurveying) {
             card.onclick = () => {
               promptUseEvent(c, idx);
             };
@@ -2449,6 +2473,16 @@
           drawBtn.classList.remove('btn-my-turn');
           myTurnBadge.innerText = `⏳ ${state.pendingDiscardPlayerName} が捨てるカードを選択中...`;
           myTurnBadge.style.color = '#ffaa00';
+        } else if (state.pendingSurveyPlayerName) {
+          drawBtn.disabled = true;
+          drawBtn.classList.remove('btn-my-turn');
+          if (state.isSurveying) {
+            myTurnBadge.innerText = '🔍 鉱山調査カードを選択中...';
+            myTurnBadge.style.color = '#70d6ff';
+          } else {
+            myTurnBadge.innerText = `⏳ ${state.pendingSurveyPlayerName} が調査カードを選択中...`;
+            myTurnBadge.style.color = '#ffaa00';
+          }
         } else if (state.isMyTurn) {
           drawBtn.disabled = false;
           myTurnBadge.innerText = '★ あなたのターンです！';
@@ -2738,12 +2772,58 @@
       setTimeout(revealNextProvisionalPlayer, 500);
     }
 
-    // 調査イベントの鉱山中身表示
-    socket.on('show_mine_cards', (mineCards) => {
+    // 調査イベントのカード選択モーダル制御
+    const surveyModal = document.getElementById('surveyModal');
+    const surveyCardsContainer = document.getElementById('surveyCardsContainer');
+    const confirmSurveyBtn = document.getElementById('confirmSurveyBtn');
+    let selectedSurveyIndex = 0;
+    let surveyCandidateCards = [];
+
+    socket.on('survey_pick_card', (data) => {
       soundManager.playEvent();
-      const formatted = mineCards.map((c, i) => `${i + 1}枚目: ${c}`).join('\n');
-      showModal('【調査完了】鉱山の中身', formatted || '鉱山は空です');
+      surveyCandidateCards = (data && data.candidates) ? data.candidates : [];
+      selectedSurveyIndex = 0;
+      renderSurveyCards();
+      if (surveyModal) surveyModal.style.display = 'flex';
     });
+
+    function renderSurveyCards() {
+      if (!surveyCardsContainer) return;
+      surveyCardsContainer.innerHTML = '';
+
+      surveyCandidateCards.forEach((c, idx) => {
+        const isSelected = (idx === selectedSurveyIndex);
+        const icon = c.type === 'bomb' ? '💥' : (c.value === 3 ? '💎' : (c.value === 2 ? '🟡' : '⛏️'));
+        const label = c.type === 'bomb' ? '爆弾 (0点 - 危険)' : `${c.name} (${c.value}点)`;
+        const item = document.createElement('div');
+        item.className = `trade-option-item ${isSelected ? 'selected' : ''}`;
+        item.style.padding = '10px 12px';
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.25rem;">${icon}</span>
+            <div>
+              <div style="font-weight:bold; font-size:0.9rem; color:${c.type === 'bomb' ? '#ff6b6b' : '#ffd700'};">${label}</div>
+              <div style="font-size:0.72rem; color:#aaa;">${c.type === 'bomb' ? '終了時に得点破壊' : `${c.value}点獲得`}</div>
+            </div>
+          </div>
+          <span class="trade-check-badge" id="surveyBadge_${idx}">${isSelected ? '✔ これを選ぶ' : 'タップして選択'}</span>
+        `;
+        item.onclick = () => {
+          selectedSurveyIndex = idx;
+          renderSurveyCards();
+          soundManager.playDraw();
+        };
+        surveyCardsContainer.appendChild(item);
+      });
+    }
+
+    if (confirmSurveyBtn) {
+      confirmSurveyBtn.addEventListener('click', () => {
+        soundManager.playPick();
+        socket.emit('choose_survey_card', { selectedIndex: selectedSurveyIndex });
+        if (surveyModal) surveyModal.style.display = 'none';
+      });
+    }
 
     // イベントカード使用時の中央演出アニメーション
     function playEventCardShowcase(eventData) {

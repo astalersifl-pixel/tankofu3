@@ -25,6 +25,7 @@ let gameState = {
   currentTurnIndex: 0,
   isGameStarted: false,
   pendingDiscardPlayerId: null,
+  pendingSurvey: null, // { playerId, candidates: [] }
   decks: { actionDeck: [], mineDeck: [], eventDeck: [] },
   discardActionDeck: [], // 使用済み行動カード
   logs: []
@@ -43,14 +44,15 @@ function initializeDecks() {
   for (let i = 0; i < 14; i++) action.push('つるはし');
   for (let i = 0; i < 6; i++) action.push('ドリル');
 
-  // イベント: 13枚 (爆破x2, 賄賂x2, 山分けx1, 公開x2, 強奪x3, 取引x3)
+  // イベント: 15枚 (爆破x2, 賄賂x2, 山分けx1, 公開x2, 強奪x3, 取引x3, 調査x2)
   let eventList = [
     { id: 'blast', name: '爆破' }, { id: 'blast', name: '爆破' },
     { id: 'bribe', name: '賄賂' }, { id: 'bribe', name: '賄賂' },
     { id: 'share', name: '山分け' },
     { id: 'reveal', name: '公開' }, { id: 'reveal', name: '公開' },
     { id: 'rob', name: '強奪' }, { id: 'rob', name: '強奪' }, { id: 'rob', name: '強奪' },
-    { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' }
+    { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' }, { id: 'trade', name: '取引' },
+    { id: 'survey', name: '調査' }, { id: 'survey', name: '調査' }
   ];
 
   return {
@@ -81,6 +83,7 @@ function shuffle(array) {
 function broadcastState(extraData = null) {
   const currentTurnPlayer = gameState.players[gameState.currentTurnIndex];
   const discardPlayer = gameState.players.find(pl => pl.id === gameState.pendingDiscardPlayerId);
+  const surveyPlayer = gameState.pendingSurvey ? gameState.players.find(pl => pl.id === gameState.pendingSurvey.playerId) : null;
 
   gameState.players.forEach(p => {
     const opponentsList = gameState.players
@@ -120,6 +123,8 @@ function broadcastState(extraData = null) {
       mustDiscard: gameState.pendingDiscardPlayerId === p.id,
       pendingDiscardPlayerId: gameState.pendingDiscardPlayerId,
       pendingDiscardPlayerName: discardPlayer ? discardPlayer.name : null,
+      isSurveying: gameState.pendingSurvey ? gameState.pendingSurvey.playerId === p.id : false,
+      pendingSurveyPlayerName: surveyPlayer ? surveyPlayer.name : null,
       logs: playerLogs,
       extraData: extraData
     };
@@ -179,6 +184,7 @@ io.on('connection', (socket) => {
     gameState.discardActionDeck = [];
     gameState.isGameStarted = true;
     gameState.pendingDiscardPlayerId = null;
+    gameState.pendingSurvey = null;
     gameState.currentTurnIndex = 0;
     gameState.players.forEach(p => { p.scoreCards = []; p.eventCards = []; });
     gameState.logs.push('ゲームを開始しました！');
@@ -189,6 +195,7 @@ io.on('connection', (socket) => {
   socket.on('restart_game', () => {
     gameState.isGameStarted = false;
     gameState.pendingDiscardPlayerId = null;
+    gameState.pendingSurvey = null;
     gameState.currentTurnIndex = 0;
     gameState.decks = { actionDeck: [], mineDeck: [], eventDeck: [] };
     gameState.discardActionDeck = [];
@@ -202,6 +209,7 @@ io.on('connection', (socket) => {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
     if (!currentPlayer || currentPlayer.id !== socket.id) return;
     if (gameState.pendingDiscardPlayerId === socket.id) return;
+    if (gameState.pendingSurvey) return;
 
     if (gameState.decks.actionDeck.length === 0) {
       gameState.decks.actionDeck = shuffle(gameState.discardActionDeck);
@@ -293,6 +301,7 @@ io.on('connection', (socket) => {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
     if (!currentPlayer || currentPlayer.id !== socket.id) return;
     if (gameState.pendingDiscardPlayerId === socket.id) return;
+    if (gameState.pendingSurvey) return;
 
     const cardIndex = (typeof payload === 'object' && payload !== null) ? payload.cardIndex : payload;
     const selectedScoreCardIndex = (typeof payload === 'object' && payload !== null) ? payload.selectedScoreCardIndex : null;
@@ -492,10 +501,83 @@ io.on('connection', (socket) => {
       } else {
         gameState.logs.push(`${currentPlayer.name} は賄賂を使おうとしましたが、戻せる得点カードが無いため不発となりました`);
       }
+    } else if (usedCard.id === 'survey') {
+      // 調査：鉱山から5枚見て、その中から1枚選ぶ（他プレイヤーには非公開）
+      if (gameState.decks.mineDeck.length === 0) {
+        gameState.logs.push('🔍 鉱山山札が空のため調査できませんでした');
+        nextTurn();
+        return;
+      }
+
+      const count = Math.min(5, gameState.decks.mineDeck.length);
+      const candidates = [];
+      for (let i = 0; i < count; i++) {
+        candidates.push(gameState.decks.mineDeck.pop());
+      }
+
+      gameState.pendingSurvey = {
+        playerId: currentPlayer.id,
+        candidates: candidates
+      };
+
+      // 調査者本人にのみ候補カードを送信（他プレイヤーには完全非公開）
+      socket.emit('survey_pick_card', {
+        candidates: candidates.map((c, idx) => ({
+          idx,
+          type: c.type,
+          name: c.name,
+          value: c.value
+        }))
+      });
+
+      // 他プレイヤー向けのログ（使用したことだけ公知、中身は非公開）
+      gameState.logs.push(`🔍 ${currentPlayer.name} は【調査】を使用しました`);
+
+      broadcastState();
+      return;
     }
 
     if (gameState.pendingDiscardPlayerId === currentPlayer.id) {
       broadcastState();
+      return;
+    }
+
+    nextTurn();
+  });
+
+  // 調査イベントのカード選択
+  socket.on('choose_survey_card', (payload) => {
+    if (!gameState.pendingSurvey || gameState.pendingSurvey.playerId !== socket.id) return;
+
+    const player = gameState.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    const candidates = gameState.pendingSurvey.candidates;
+    let selectedIdx = (payload && typeof payload.selectedIndex === 'number') ? payload.selectedIndex : 0;
+    if (selectedIdx < 0 || selectedIdx >= candidates.length) selectedIdx = 0;
+
+    // 選んだカードを手札に追加
+    const chosenCard = candidates[selectedIdx];
+    player.scoreCards.push(chosenCard);
+
+    // 選ばれなかった残りのカードを鉱山山札に戻してシャッフル
+    const remaining = candidates.filter((_, idx) => idx !== selectedIdx);
+    gameState.decks.mineDeck.push(...remaining);
+    gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
+
+    gameState.pendingSurvey = null;
+
+    // ログ: 本人には獲得したカード名を表示、他プレイヤーには非公開
+    const chosenText = chosenCard.type === 'bomb' ? '💥爆弾' : `${chosenCard.name}(${chosenCard.value}点)`;
+    gameState.logs.push({
+      playerId: player.id,
+      privateText: `🔍 あなた は【調査】で【${chosenText}】を獲得しました！`,
+      publicText: `🔍 ${player.name} は【調査】で鉱山から1枚選んで獲得しました`
+    });
+
+    // 鉱山切れチェック
+    if (gameState.decks.mineDeck.length === 0) {
+      endGame();
       return;
     }
 
@@ -507,6 +589,11 @@ io.on('connection', (socket) => {
     gameState.players = gameState.players.filter(p => p.id !== socket.id);
     if (gameState.pendingDiscardPlayerId === socket.id) {
       gameState.pendingDiscardPlayerId = null;
+    }
+    if (gameState.pendingSurvey && gameState.pendingSurvey.playerId === socket.id) {
+      gameState.decks.mineDeck.push(...gameState.pendingSurvey.candidates);
+      gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
+      gameState.pendingSurvey = null;
     }
     if (leftPlayer) {
       gameState.logs.push(`${leftPlayer.name} が退出しました`);

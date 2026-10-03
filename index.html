@@ -1354,7 +1354,7 @@
         <div>
           <div class="rules-section-title">イベントカード（全13枚 / 手札上限4枚）</div>
           <p style="font-size:0.75rem; color:#aaa; margin-bottom:4px;">※使ったカードはイベント山札の底に戻ります。手札は最大4枚まで持て、5枚目を引いたときは捨てるカードを自分で選んで山札の底に戻します。</p>
-          <div class="rule-item"><strong>💣 爆破 (2枚)</strong>: 爆弾を持つプレイヤーは爆弾とランダムな得点1枚を鉱山に戻しシャッフル！（誰も爆弾が無ければ不発）</div>
+          <div class="rule-item"><strong>💣 爆破 (2枚)</strong>: 爆弾を持つプレイヤーは爆弾を鉱山に戻し、得点カードをランダムに3枚破壊！（誰も爆弾が無ければ不発）</div>
           <div class="rule-item"><strong>💰 賄賂 (2枚)</strong>: 自分の最小得点カード1枚を鉱山に戻し、イベント山札から2枚引く</div>
           <div class="rule-item"><strong>🤝 山分け (1枚)</strong>: 全プレイヤーの得点カードを一旦回収し、時計回りに再分配！</div>
           <div class="rule-item"><strong>👁️ 公開 (2枚)</strong>: 他のプレイヤー1人を選び、そのプレイヤーの手札得点を全員に公開</div>
@@ -1810,7 +1810,7 @@
     const eventConfirmOkBtn = document.getElementById('eventConfirmOkBtn');
 
     const EVENT_INFO = {
-      'blast': { title: '💣 爆破', desc: '爆弾を持つプレイヤーは、爆弾とランダムな得点1枚を鉱山に戻してシャッフルします。\n（※誰も爆弾を持っていなければ不発となります）' },
+      'blast': { title: '💣 爆破', desc: '爆弾を持つプレイヤーは、爆弾を鉱山に戻し、得点カードをランダムに3枚破壊します！\n（※誰も爆弾を持っていなければ不発となります）' },
       'bribe': { title: '💰 賄賂', desc: '自分の得点カードの中で一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引きます。\n（※戻せる得点がない場合は不発となります。手札上限は4枚です）' },
       'share': { title: '🤝 山分け', desc: '全プレイヤーの得点カードを一旦回収し、時計回りに1枚ずつ再分配します！' },
       'reveal': { title: '👁️ 公開', desc: '他のプレイヤー1人を選び、そのプレイヤーの手札得点をまとめて全員に公開します。\n\n⚠️【重要】公開する相手を【下の選択肢からタップ】して選んでください！' },
@@ -2263,7 +2263,7 @@
           } else if (currentLog.includes('爆破') || currentLog.includes('💣')) {
             soundManager.playBomb();
             triggerScreenShake();
-            showToast('💣 爆破発動！ 鉱山へシャッフル！', 'bomb');
+            showToast('💣 爆破発動！ 得点3枚破壊！', 'bomb');
           } else if (currentLog.includes('賄賂') || currentLog.includes('💰')) {
             soundManager.playEvent();
             showToast('💰 賄賂！ イベント2枚獲得');

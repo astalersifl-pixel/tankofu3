@@ -315,31 +315,37 @@ io.on('connection', (socket) => {
 
     // イベント効果分岐
     if (usedCard.id === 'blast') {
-      // 爆破：爆弾カードを持つプレイヤーは爆弾とランダムに選ばれた得点カード1枚を鉱山に戻しシャッフルする。誰も爆弾を持っていなければ不発となりターンは終わる。
-      const bombPlayer = gameState.players.find(p => p.scoreCards.some(c => c.type === 'bomb'));
-      if (bombPlayer) {
-        // 爆弾を取り除く
-        const bIdx = bombPlayer.scoreCards.findIndex(c => c.type === 'bomb');
-        const bombCard = bombPlayer.scoreCards.splice(bIdx, 1)[0];
-        gameState.decks.mineDeck.push(bombCard);
+      // 爆破：爆弾カードを持つプレイヤーは爆弾を鉱山に戻し、得点カードをランダムに3枚破壊
+      const bombPlayers = gameState.players.filter(p => p.scoreCards.some(c => c.type === 'bomb'));
+      if (bombPlayers.length > 0) {
+        bombPlayers.forEach(bombPlayer => {
+          // 爆弾を取り除いて鉱山に戻す
+          const bIdx = bombPlayer.scoreCards.findIndex(c => c.type === 'bomb');
+          const bombCard = bombPlayer.scoreCards.splice(bIdx, 1)[0];
+          gameState.decks.mineDeck.push(bombCard);
 
-        // 得点カードからランダムに1枚取り除く
-        const scoreIndices = [];
-        bombPlayer.scoreCards.forEach((c, idx) => {
-          if (c.type === 'score') scoreIndices.push(idx);
+          // 非爆弾の得点カードを抽出
+          let scoreCards = bombPlayer.scoreCards.filter(c => c.type !== 'bomb');
+          let bombCards = bombPlayer.scoreCards.filter(c => c.type === 'bomb');
+
+          // シャッフルしてランダムに最大3枚破壊
+          scoreCards = shuffle(scoreCards);
+          const destroyedCards = scoreCards.slice(0, 3);
+          const remainingScoreCards = scoreCards.slice(3);
+
+          bombPlayer.scoreCards = [...remainingScoreCards, ...bombCards];
+
+          if (destroyedCards.length > 0) {
+            const destroyedText = destroyedCards.map(c => `【${c.name} (${c.value}点)】`).join(' ＆ ');
+            const totalLost = destroyedCards.reduce((sum, c) => sum + (c.value || 0), 0);
+            gameState.logs.push(`💣【爆破】発動！ ${bombPlayer.name} の爆弾が爆発し、得点カード ${destroyedText} をランダムに3枚破壊！ (-${totalLost}点)`);
+          } else {
+            gameState.logs.push(`💣【爆破】発動！ ${bombPlayer.name} の爆弾が爆発！（破壊できる得点カードなし）`);
+          }
         });
-
-        let returnedScoreText = '得点なし';
-        if (scoreIndices.length > 0) {
-          const randIdx = scoreIndices[Math.floor(Math.random() * scoreIndices.length)];
-          const returnedScore = bombPlayer.scoreCards.splice(randIdx, 1)[0];
-          gameState.decks.mineDeck.push(returnedScore);
-          returnedScoreText = `${returnedScore.name} (${returnedScore.value}点)`;
-        }
 
         // 鉱山山札をシャッフル
         gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
-        gameState.logs.push(`💣【爆破】発動！ ${bombPlayer.name} は爆弾と【${returnedScoreText}】を鉱山に戻してシャッフル！`);
       } else {
         gameState.logs.push('💣 誰も爆弾を持っていなかったため【爆破】は不発でした');
       }

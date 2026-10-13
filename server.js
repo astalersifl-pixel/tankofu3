@@ -26,6 +26,8 @@ let gameState = {
   isGameStarted: false,
   pendingDiscardPlayerId: null,
   pendingSurvey: null, // { playerId, candidates: [] }
+  pendingTrade: null,  // { playerId }
+  pendingReveal: null, // { playerId }
   decks: { actionDeck: [], mineDeck: [], eventDeck: [] },
   discardActionDeck: [], // 使用済み行動カード
   logs: []
@@ -84,6 +86,8 @@ function broadcastState(extraData = null) {
   const currentTurnPlayer = gameState.players[gameState.currentTurnIndex];
   const discardPlayer = gameState.players.find(pl => pl.id === gameState.pendingDiscardPlayerId);
   const surveyPlayer = gameState.pendingSurvey ? gameState.players.find(pl => pl.id === gameState.pendingSurvey.playerId) : null;
+  const tradePlayer = gameState.pendingTrade ? gameState.players.find(pl => pl.id === gameState.pendingTrade.playerId) : null;
+  const revealPlayer = gameState.pendingReveal ? gameState.players.find(pl => pl.id === gameState.pendingReveal.playerId) : null;
 
   gameState.players.forEach(p => {
     const opponentsList = gameState.players
@@ -125,6 +129,10 @@ function broadcastState(extraData = null) {
       pendingDiscardPlayerName: discardPlayer ? discardPlayer.name : null,
       isSurveying: gameState.pendingSurvey ? gameState.pendingSurvey.playerId === p.id : false,
       pendingSurveyPlayerName: surveyPlayer ? surveyPlayer.name : null,
+      isTrading: gameState.pendingTrade ? gameState.pendingTrade.playerId === p.id : false,
+      pendingTradePlayerName: tradePlayer ? tradePlayer.name : null,
+      isRevealing: gameState.pendingReveal ? gameState.pendingReveal.playerId === p.id : false,
+      pendingRevealPlayerName: revealPlayer ? revealPlayer.name : null,
       logs: playerLogs,
       extraData: extraData
     };
@@ -185,6 +193,8 @@ io.on('connection', (socket) => {
     gameState.isGameStarted = true;
     gameState.pendingDiscardPlayerId = null;
     gameState.pendingSurvey = null;
+    gameState.pendingTrade = null;
+    gameState.pendingReveal = null;
     gameState.currentTurnIndex = 0;
     gameState.players.forEach(p => { p.scoreCards = []; p.eventCards = []; });
     gameState.logs.push('ゲームを開始しました！');
@@ -196,6 +206,8 @@ io.on('connection', (socket) => {
     gameState.isGameStarted = false;
     gameState.pendingDiscardPlayerId = null;
     gameState.pendingSurvey = null;
+    gameState.pendingTrade = null;
+    gameState.pendingReveal = null;
     gameState.currentTurnIndex = 0;
     gameState.decks = { actionDeck: [], mineDeck: [], eventDeck: [] };
     gameState.discardActionDeck = [];
@@ -209,7 +221,7 @@ io.on('connection', (socket) => {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
     if (!currentPlayer || currentPlayer.id !== socket.id) return;
     if (gameState.pendingDiscardPlayerId === socket.id) return;
-    if (gameState.pendingSurvey) return;
+    if (gameState.pendingSurvey || gameState.pendingTrade || gameState.pendingReveal) return;
 
     if (gameState.decks.actionDeck.length === 0) {
       gameState.decks.actionDeck = shuffle(gameState.discardActionDeck);
@@ -301,7 +313,7 @@ io.on('connection', (socket) => {
     const currentPlayer = gameState.players[gameState.currentTurnIndex];
     if (!currentPlayer || currentPlayer.id !== socket.id) return;
     if (gameState.pendingDiscardPlayerId === socket.id) return;
-    if (gameState.pendingSurvey) return;
+    if (gameState.pendingSurvey || gameState.pendingTrade || gameState.pendingReveal) return;
 
     const cardIndex = (typeof payload === 'object' && payload !== null) ? payload.cardIndex : payload;
     const selectedScoreCardIndex = (typeof payload === 'object' && payload !== null) ? payload.selectedScoreCardIndex : null;
@@ -380,17 +392,20 @@ io.on('connection', (socket) => {
         gameState.logs.push('🤝 全員が得点を持っていないため山分けは不発でした');
       }
     } else if (usedCard.id === 'reveal') {
-      // 公開：指定された他プレイヤー（未指定ならランダム）の得点をまとめて開示
+      // 公開：相手プレイヤーの手札得点を全員に公開
       const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
-      let target = null;
-      if (typeof targetPlayerId === 'string') {
-        target = otherPlayers.find(p => p.id === targetPlayerId);
-      }
-      if (!target && otherPlayers.length > 0) {
-        target = otherPlayers[Math.floor(Math.random() * otherPlayers.length)];
+      if (otherPlayers.length === 0) {
+        gameState.logs.push('👁️ 他に対象プレイヤーがいませんでした');
+        nextTurn();
+        return;
       }
 
+      let target = (typeof targetPlayerId === 'string')
+        ? otherPlayers.find(p => p.id === targetPlayerId)
+        : null;
+
       if (target) {
+        // 相手が選択済みなら即時公開を実行
         const counts = { '石炭': 0, '金': 0, 'ダイヤ': 0, '爆弾': 0 };
         let totalPts = 0;
         target.scoreCards.forEach(c => {
@@ -411,9 +426,17 @@ io.on('connection', (socket) => {
 
         const summary = parts.length > 0 ? parts.join('、') + ` (計${totalPts}点 / 全${target.scoreCards.length}枚)` : 'カードなし (0点)';
         gameState.logs.push(`👁️【公開】${currentPlayer.name} は ${target.name} を指名！ ➔ 手札: ${summary}`);
-      } else {
-        gameState.logs.push('👁️ 他に対象プレイヤーがいませんでした');
+        nextTurn();
+        return;
       }
+
+      // 未指定の場合は選択待機ダイアログを送信
+      gameState.pendingReveal = {
+        playerId: currentPlayer.id
+      };
+      socket.emit('reveal_select_dialog');
+      broadcastState();
+      return;
     } else if (usedCard.id === 'rob') {
       // 強奪：一番多く得点を持っている他プレイヤーからランダム1枚奪う
       let maxCount = -1;
@@ -438,27 +461,26 @@ io.on('connection', (socket) => {
         gameState.logs.push('🦹 他プレイヤーに奪える得点がありませんでした');
       }
     } else if (usedCard.id === 'trade') {
-      // 取引：使用したプレイヤーは得点カードと相手を選び、相手はランダムで得点カード1枚を交換
+      // 取引：相手プレイヤーと自分の得点カードを交換
       const otherPlayersWithCards = gameState.players.filter(p => p.id !== currentPlayer.id && p.scoreCards.length > 0);
-      let partner = null;
-      if (typeof targetPlayerId === 'string') {
-        partner = otherPlayersWithCards.find(p => p.id === targetPlayerId);
-      }
-      if (!partner && otherPlayersWithCards.length > 0) {
-        partner = otherPlayersWithCards[Math.floor(Math.random() * otherPlayersWithCards.length)];
+      if (currentPlayer.scoreCards.length === 0 || otherPlayersWithCards.length === 0) {
+        gameState.logs.push('🔄 交換できるカードまたは対象プレイヤーが不足しているため取引は不発でした');
+        nextTurn();
+        return;
       }
 
-      if (currentPlayer.scoreCards.length > 0 && partner && partner.scoreCards.length > 0) {
-        let myCardIdx = 0;
-        if (typeof selectedScoreCardIndex === 'number' && selectedScoreCardIndex >= 0 && selectedScoreCardIndex < currentPlayer.scoreCards.length) {
-          myCardIdx = selectedScoreCardIndex;
-        } else {
-          myCardIdx = Math.floor(Math.random() * currentPlayer.scoreCards.length);
-        }
+      let partner = (typeof targetPlayerId === 'string')
+        ? otherPlayersWithCards.find(p => p.id === targetPlayerId)
+        : null;
 
+      let validCardIdx = (typeof selectedScoreCardIndex === 'number' && selectedScoreCardIndex >= 0 && selectedScoreCardIndex < currentPlayer.scoreCards.length)
+        ? selectedScoreCardIndex
+        : null;
+
+      if (partner && validCardIdx !== null) {
+        // 相手と渡すカードが選択済みなら即時取引を実行
         const partnerCardIdx = Math.floor(Math.random() * partner.scoreCards.length);
-
-        const myCard = currentPlayer.scoreCards.splice(myCardIdx, 1)[0];
+        const myCard = currentPlayer.scoreCards.splice(validCardIdx, 1)[0];
         const partnerCard = partner.scoreCards.splice(partnerCardIdx, 1)[0];
 
         currentPlayer.scoreCards.push(partnerCard);
@@ -466,9 +488,17 @@ io.on('connection', (socket) => {
 
         const myCardText = myCard.type === 'bomb' ? '💥爆弾' : `${myCard.name}(${myCard.value}点)`;
         gameState.logs.push(`🔄 ${currentPlayer.name} は【${myCardText}】を渡し、${partner.name} と得点カードを取引しました！`);
-      } else {
-        gameState.logs.push('🔄 交換できるカードまたは対象プレイヤーが不足しているため取引は不発でした');
+        nextTurn();
+        return;
       }
+
+      // 未指定の場合は選択待機ダイアログを送信
+      gameState.pendingTrade = {
+        playerId: currentPlayer.id
+      };
+      socket.emit('trade_select_dialog');
+      broadcastState();
+      return;
     } else if (usedCard.id === 'bribe') {
       // 賄賂：自分の得点のカードの一番小さい得点のカードを鉱山に戻し、イベント山札から2枚引く（手札上限4枚・超過時は手動選択破棄）
       let minVal = Infinity;
@@ -584,6 +614,94 @@ io.on('connection', (socket) => {
     nextTurn();
   });
 
+  // 取引イベントの選択確定
+  socket.on('choose_trade_options', (payload) => {
+    if (!gameState.pendingTrade || gameState.pendingTrade.playerId !== socket.id) return;
+
+    const currentPlayer = gameState.players.find(p => p.id === socket.id);
+    if (!currentPlayer) return;
+
+    const otherPlayersWithCards = gameState.players.filter(p => p.id !== currentPlayer.id && p.scoreCards.length > 0);
+    let partner = null;
+    const targetPlayerId = payload ? payload.targetPlayerId : null;
+    if (typeof targetPlayerId === 'string') {
+      partner = otherPlayersWithCards.find(p => p.id === targetPlayerId);
+    }
+    if (!partner && otherPlayersWithCards.length > 0) {
+      partner = otherPlayersWithCards[0];
+    }
+
+    if (currentPlayer.scoreCards.length > 0 && partner && partner.scoreCards.length > 0) {
+      let myCardIdx = 0;
+      const selectedScoreCardIndex = payload ? payload.selectedScoreCardIndex : 0;
+      if (typeof selectedScoreCardIndex === 'number' && selectedScoreCardIndex >= 0 && selectedScoreCardIndex < currentPlayer.scoreCards.length) {
+        myCardIdx = selectedScoreCardIndex;
+      }
+
+      const partnerCardIdx = Math.floor(Math.random() * partner.scoreCards.length);
+
+      const myCard = currentPlayer.scoreCards.splice(myCardIdx, 1)[0];
+      const partnerCard = partner.scoreCards.splice(partnerCardIdx, 1)[0];
+
+      currentPlayer.scoreCards.push(partnerCard);
+      partner.scoreCards.push(myCard);
+
+      const myCardText = myCard.type === 'bomb' ? '💥爆弾' : `${myCard.name}(${myCard.value}点)`;
+      gameState.logs.push(`🔄 ${currentPlayer.name} は【${myCardText}】を渡し、${partner.name} と得点カードを取引しました！`);
+    } else {
+      gameState.logs.push('🔄 交換できるカードまたは対象プレイヤーが不足しているため取引は不発でした');
+    }
+
+    gameState.pendingTrade = null;
+    nextTurn();
+  });
+
+  // 公開イベントの対象確定
+  socket.on('choose_reveal_target', (payload) => {
+    if (!gameState.pendingReveal || gameState.pendingReveal.playerId !== socket.id) return;
+
+    const currentPlayer = gameState.players.find(p => p.id === socket.id);
+    if (!currentPlayer) return;
+
+    const otherPlayers = gameState.players.filter(p => p.id !== currentPlayer.id);
+    let target = null;
+    const targetPlayerId = payload ? payload.targetPlayerId : null;
+    if (typeof targetPlayerId === 'string') {
+      target = otherPlayers.find(p => p.id === targetPlayerId);
+    }
+    if (!target && otherPlayers.length > 0) {
+      target = otherPlayers[0];
+    }
+
+    if (target) {
+      const counts = { '石炭': 0, '金': 0, 'ダイヤ': 0, '爆弾': 0 };
+      let totalPts = 0;
+      target.scoreCards.forEach(c => {
+        if (c.type === 'bomb') {
+          counts['爆弾']++;
+        } else {
+          if (counts[c.name] === undefined) counts[c.name] = 0;
+          counts[c.name]++;
+          totalPts += (c.value || 0);
+        }
+      });
+
+      const parts = [];
+      if (counts['石炭'] > 0) parts.push(`石炭${counts['石炭']}枚`);
+      if (counts['金'] > 0) parts.push(`金${counts['金']}枚`);
+      if (counts['ダイヤ'] > 0) parts.push(`ダイヤ${counts['ダイヤ']}枚`);
+      if (counts['爆弾'] > 0) parts.push(`💥爆弾${counts['爆弾']}枚`);
+
+      const summary = parts.length > 0 ? parts.join('、') + ` (計${totalPts}点 / 全${target.scoreCards.length}枚)` : 'カードなし (0点)';
+      gameState.logs.push(`👁️【公開】${currentPlayer.name} は ${target.name} を指名！ ➔ 手札: ${summary}`);
+    } else {
+      gameState.logs.push('👁️ 他に対象プレイヤーがいませんでした');
+    }
+
+    gameState.pendingReveal = null;
+    nextTurn();
+  });
+
   socket.on('disconnect', () => {
     const leftPlayer = gameState.players.find(p => p.id === socket.id);
     gameState.players = gameState.players.filter(p => p.id !== socket.id);
@@ -594,6 +712,12 @@ io.on('connection', (socket) => {
       gameState.decks.mineDeck.push(...gameState.pendingSurvey.candidates);
       gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
       gameState.pendingSurvey = null;
+    }
+    if (gameState.pendingTrade && gameState.pendingTrade.playerId === socket.id) {
+      gameState.pendingTrade = null;
+    }
+    if (gameState.pendingReveal && gameState.pendingReveal.playerId === socket.id) {
+      gameState.pendingReveal = null;
     }
     if (leftPlayer) {
       gameState.logs.push(`${leftPlayer.name} が退出しました`);

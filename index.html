@@ -1297,75 +1297,69 @@
     </div>
   </div>
 
-  <!-- 取引イベントの相手・カード選択モーダル（使用後に段階的に表示） -->
+  <!-- 取引イベントの相手・カード選択モーダル（説明を省き、相手と自分の得点カードを直接選択可能） -->
   <div id="tradeModal" class="dialog-backdrop">
-    <div class="dialog-card pop-in" style="max-width: 360px;">
-      <!-- ステップインジケーター -->
-      <div style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px;">
-        <span id="tradeStepBadge1" style="font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 12px; background: #ffd700; color: #111;">① 相手選択</span>
-        <span style="color: #666; font-size: 0.8rem;">➔</span>
-        <span id="tradeStepBadge2" style="font-size: 0.72rem; font-weight: 800; padding: 2px 8px; border-radius: 12px; background: #333; color: #888;">② 渡すカード決定</span>
+    <div class="dialog-card pop-in" style="max-width: 360px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="dialog-title" id="tradeModalTitle" style="color: #ffd700; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px;">
+        <span>🔄 取引</span>
       </div>
 
-      <div class="dialog-title" id="tradeModalTitle" style="color: #ffd700; display: flex; align-items: center; justify-content: center; gap: 6px;">
-        <span>🔄 取引：相手プレイヤーの選択</span>
-      </div>
-      <div id="tradeModalDesc" style="font-size: 0.82rem; color: #ddd; line-height: 1.4; margin-top: 2px;">
-        【取引】を使用しました！<br>
-        取引する相手プレイヤーを1人選択して「決定」を押してください。
-      </div>
-
-      <!-- ステップ1: 相手プレイヤー選択 -->
-      <div id="tradeStep1Box" style="margin-top: 10px; text-align: left; background: #29220d; border: 2px solid #ffd700; border-radius: 8px; padding: 10px;">
+      <!-- 取引する相手プレイヤー選択 -->
+      <div style="text-align: left; background: #222; border: 1.5px solid #444; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 0.84rem; color: #ffd700; font-weight: 900;">👤 取引する相手を1人選択:</span>
-          <span style="font-size: 0.72rem; color: #ffec8b; font-weight: bold;">タップで選択</span>
+          <span style="font-size: 0.82rem; color: #ffd700; font-weight: 800;">👤 取引する相手プレイヤー:</span>
+          <span style="font-size: 0.7rem; color: #888;">タップで選択</span>
         </div>
-        <div class="trade-options-container" id="tradePartnersContainer" style="max-height: 180px;"></div>
-        <button class="dialog-btn" id="tradeStep1NextBtn" type="button" style="background: linear-gradient(135deg, #1e90ff, #00bfff); color: #fff; width: 100%; margin-top: 10px; font-weight: 900; padding: 11px; box-shadow: 0 0 10px rgba(30,144,255,0.4);">
-          決定して渡すカードの選択へ進む ➔
+        <div class="trade-options-container" id="tradePartnersContainer" style="max-height: 125px;"></div>
+      </div>
+
+      <!-- 渡す自分の得点カード選択 -->
+      <div style="text-align: left; background: #222; border: 1.5px solid #444; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 0.82rem; color: #ffd700; font-weight: 800;">⛏️ 交換に出す自分の得点カード:</span>
+          <span style="font-size: 0.7rem; color: #888;">タップで選択</span>
+        </div>
+        <div class="trade-options-container" id="tradeMyCardsContainer" style="max-height: 125px;"></div>
+      </div>
+
+      <div style="font-size: 0.7rem; color: #888; text-align: center; margin-bottom: 8px;">
+        ※相手から受け取る得点カードはランダムに決まります
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: auto;">
+        <button class="dialog-btn" id="tradeCancelBtn" type="button" style="background: #3a3a3a; color: #ddd; flex: 1; padding: 10px; font-weight: bold;">
+          やめる
         </button>
-      </div>
-
-      <!-- ステップ2: 自分が渡すカード選択 -->
-      <div id="tradeStep2Box" style="display: none; margin-top: 10px; text-align: left; background: #29220d; border: 2px solid #ffd700; border-radius: 8px; padding: 10px;">
-        <div style="font-size: 0.78rem; color: #70d6ff; margin-bottom: 6px; padding: 4px 8px; background: rgba(0,0,0,0.4); border-radius: 4px;">
-          相手: <strong id="tradeSelectedPartnerLabel" style="color: #ffd700;">---</strong> と取引します
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span style="font-size: 0.84rem; color: #ffd700; font-weight: 900;">⛏️ 相手に渡すカードを1つ選択:</span>
-          <span style="font-size: 0.72rem; color: #ffec8b; font-weight: bold;">タップで選択</span>
-        </div>
-        <div class="trade-options-container" id="tradeMyCardsContainer" style="max-height: 160px;"></div>
-        <div style="font-size: 0.72rem; color: #aaa; margin-top: 6px; text-align: center;">
-          ※相手から受け取る得点カードはランダムに決まります
-        </div>
-        <div style="display: flex; gap: 8px; margin-top: 10px;">
-          <button class="dialog-btn" id="tradeStep2BackBtn" type="button" style="background: #444; color: #ddd; flex: 1; padding: 10px; font-weight: bold;">
-            ⬅ 相手を選び直す
-          </button>
-          <button class="dialog-btn" id="confirmTradeBtn" type="button" style="background: linear-gradient(135deg, #ffd700, #ffaa00); color: #111; flex: 2; font-weight: 900; padding: 11px; box-shadow: 0 0 10px rgba(255,215,0,0.4);">
-            ✔ 決定して取引を実行する
-          </button>
-        </div>
+        <button class="dialog-btn" id="confirmTradeBtn" type="button" style="background: linear-gradient(135deg, #ffd700, #ffaa00); color: #111; flex: 2; font-weight: 900; padding: 11px; box-shadow: 0 0 10px rgba(255,215,0,0.4);">
+          ✔ 取引を実行する
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- 公開イベントの相手選択モーダル（使用後に表示） -->
+  <!-- 公開イベントの相手選択モーダル（説明を省き、相手プレイヤーを直接選択可能） -->
   <div id="revealModal" class="dialog-backdrop">
-    <div class="dialog-card pop-in" style="max-width: 360px;">
-      <div class="dialog-title" style="color: #70d6ff; display: flex; align-items: center; justify-content: center; gap: 6px;">
-        <span>👁️ 公開：相手プレイヤーの選択</span>
+    <div class="dialog-card pop-in" style="max-width: 360px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="dialog-title" style="color: #70d6ff; display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 8px;">
+        <span>👁️ 公開</span>
       </div>
-      <div style="font-size: 0.82rem; color: #ddd; line-height: 1.4;">
-        【公開】を使用しました！<br>
-        手札の得点を全員に公開させる相手を1人タップしてください。
+
+      <div style="text-align: left; background: #222; border: 1.5px solid #444; border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 0.82rem; color: #70d6ff; font-weight: 800;">👤 手札を公開させる相手プレイヤー:</span>
+          <span style="font-size: 0.7rem; color: #888;">タップで選択</span>
+        </div>
+        <div class="trade-options-container" id="revealPartnersContainer" style="max-height: 200px;"></div>
       </div>
-      <div class="trade-options-container" id="revealPartnersContainer" style="max-height: 220px; margin-top: 8px;"></div>
-      <button class="dialog-btn" id="confirmRevealBtn" type="button" style="background: linear-gradient(135deg, #70d6ff, #0099ff); color: #fff; width: 100%; margin-top: 10px; font-weight: bold; padding: 11px; box-shadow: 0 0 10px rgba(112,214,255,0.4);">
-        ✔ このプレイヤーの手札を公開させる
-      </button>
+
+      <div style="display: flex; gap: 8px; margin-top: auto;">
+        <button class="dialog-btn" id="revealCancelBtn" type="button" style="background: #3a3a3a; color: #ddd; flex: 1; padding: 10px; font-weight: bold;">
+          やめる
+        </button>
+        <button class="dialog-btn" id="confirmRevealBtn" type="button" style="background: linear-gradient(135deg, #70d6ff, #0099ff); color: #fff; flex: 2; font-weight: bold; padding: 11px; box-shadow: 0 0 10px rgba(112,214,255,0.4);">
+          ✔ 手札を公開させる
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1942,6 +1936,12 @@
           showModal('取引不可', '得点カードを持っている対戦相手がいません。');
           return;
         }
+
+        // 説明ダイアログは省き、相手と自分の得点カードの選択画面を直接開く
+        pendingEventIndex = index;
+        pendingCardId = 'trade';
+        openTradeModalDirectly();
+        return;
       }
 
       if (card.id === 'reveal') {
@@ -1950,6 +1950,12 @@
           showModal('公開不可', '対象となる他のプレイヤーがいません。');
           return;
         }
+
+        // 説明ダイアログは省き、相手プレイヤーの選択画面を直接開く
+        pendingEventIndex = index;
+        pendingCardId = 'reveal';
+        openRevealModalDirectly();
+        return;
       }
 
       if (card.id === 'survey') {
@@ -1970,11 +1976,7 @@
       eventConfirmTitle.innerText = `${info.title} を使いますか？`;
 
       let noteText = '※使用するとこのターンで効果が発動し、ターンが終了します。<br>（使用後はイベント山札の底に戻ります）';
-      if (card.id === 'trade') {
-        noteText = '※カード使用後に、取引する相手と渡すカードを選択します。';
-      } else if (card.id === 'reveal') {
-        noteText = '※カード使用後に、公開する相手プレイヤーを選択します。';
-      } else if (card.id === 'survey') {
+      if (card.id === 'survey') {
         noteText = '※カード使用後に、鉱山から引いた5枚の中から1枚を選択します。';
       }
 
@@ -2026,79 +2028,29 @@
       }
     }
 
-    // 取引モーダル制御（カード使用後にサーバーから通知：①相手選択 ➔ 決定 ➔ ②渡すカード選択 ➔ 決定）
+    // 取引モーダル制御（相手選択＋自分の得点カード選択をワンストップで実施）
     const tradeModal = document.getElementById('tradeModal');
-    const tradeModalTitle = document.getElementById('tradeModalTitle');
-    const tradeModalDesc = document.getElementById('tradeModalDesc');
-    const tradeStepBadge1 = document.getElementById('tradeStepBadge1');
-    const tradeStepBadge2 = document.getElementById('tradeStepBadge2');
-    const tradeStep1Box = document.getElementById('tradeStep1Box');
-    const tradeStep2Box = document.getElementById('tradeStep2Box');
-    const tradeStep1NextBtn = document.getElementById('tradeStep1NextBtn');
-    const tradeStep2BackBtn = document.getElementById('tradeStep2BackBtn');
     const tradePartnersContainer = document.getElementById('tradePartnersContainer');
     const tradeMyCardsContainer = document.getElementById('tradeMyCardsContainer');
-    const tradeSelectedPartnerLabel = document.getElementById('tradeSelectedPartnerLabel');
+    const tradeCancelBtn = document.getElementById('tradeCancelBtn');
     const confirmTradeBtn = document.getElementById('confirmTradeBtn');
 
-    let currentTradeStep = 1; // 1: 相手選択, 2: 渡すカード選択
+    function openTradeModalDirectly() {
+      if (tradeCancelBtn) tradeCancelBtn.style.display = 'block';
+      renderTradeOptions();
+      if (tradeModal) tradeModal.style.display = 'flex';
+      soundManager.playDraw();
+    }
 
     socket.on('trade_select_dialog', () => {
       openAfterShowcase(() => {
         soundManager.playEvent();
-        currentTradeStep = 1;
-        setTradeStep(1);
+        pendingEventIndex = null;
+        if (tradeCancelBtn) tradeCancelBtn.style.display = 'none';
         renderTradeOptions();
         if (tradeModal) tradeModal.style.display = 'flex';
       });
     });
-
-    function setTradeStep(step) {
-      currentTradeStep = step;
-      if (step === 1) {
-        if (tradeStepBadge1) {
-          tradeStepBadge1.style.background = '#ffd700';
-          tradeStepBadge1.style.color = '#111';
-        }
-        if (tradeStepBadge2) {
-          tradeStepBadge2.style.background = '#333';
-          tradeStepBadge2.style.color = '#888';
-        }
-        if (tradeModalTitle) {
-          tradeModalTitle.innerHTML = '<span>🔄 取引：相手プレイヤーの選択</span>';
-        }
-        if (tradeModalDesc) {
-          tradeModalDesc.innerHTML = '【取引】を使用しました！<br>取引する相手プレイヤーを1人選択して「決定」を押してください。';
-        }
-        if (tradeStep1Box) tradeStep1Box.style.display = 'block';
-        if (tradeStep2Box) tradeStep2Box.style.display = 'none';
-      } else {
-        if (tradeStepBadge1) {
-          tradeStepBadge1.style.background = '#2e8b57';
-          tradeStepBadge1.style.color = '#fff';
-        }
-        if (tradeStepBadge2) {
-          tradeStepBadge2.style.background = '#ffd700';
-          tradeStepBadge2.style.color = '#111';
-        }
-        if (tradeModalTitle) {
-          tradeModalTitle.innerHTML = '<span>🔄 取引：相手に渡すカードの決定</span>';
-        }
-        if (tradeModalDesc) {
-          tradeModalDesc.innerHTML = '相手プレイヤーが決定しました。<br>相手に渡す自分の得点カードを選択して「決定」を押してください。';
-        }
-        if (tradeStep1Box) tradeStep1Box.style.display = 'none';
-        if (tradeStep2Box) tradeStep2Box.style.display = 'block';
-
-        const validOpponents = (currentClientState && currentClientState.opponents)
-          ? currentClientState.opponents.filter(o => o.scoreCardCount > 0)
-          : [];
-        const partner = validOpponents.find(o => o.id === selectedTradePartnerId) || validOpponents[0];
-        if (tradeSelectedPartnerLabel) {
-          tradeSelectedPartnerLabel.innerText = partner ? partner.name : '---';
-        }
-      }
-    }
 
     function renderTradeOptions() {
       const validOpponents = (currentClientState && currentClientState.opponents)
@@ -2115,87 +2067,127 @@
 
       if (tradePartnersContainer) {
         tradePartnersContainer.innerHTML = '';
-        validOpponents.forEach((opp) => {
-          const isSelected = (opp.id === selectedTradePartnerId);
-          const item = document.createElement('div');
-          item.className = `target-player-item ${isSelected ? 'selected' : ''}`;
-          item.innerHTML = `
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-weight:bold; font-size:0.86rem;">👤 ${opp.name}</span>
-              <span style="font-size:0.72rem; color:#ffd700;">(得点:${opp.scoreCardCount}枚)</span>
-            </div>
-            <span class="trade-check-badge">${isSelected ? '✔ 選択中' : 'タップして選択'}</span>
-          `;
-          item.onclick = () => {
-            selectedTradePartnerId = opp.id;
-            renderTradeOptions();
-            soundManager.playDraw();
-          };
-          tradePartnersContainer.appendChild(item);
-        });
+        if (validOpponents.length === 0) {
+          tradePartnersContainer.innerHTML = '<div style="font-size:0.75rem; color:#888; padding:6px; text-align:center;">取引可能な相手がいません</div>';
+        } else {
+          validOpponents.forEach((opp) => {
+            const isSelected = (opp.id === selectedTradePartnerId);
+            const item = document.createElement('div');
+            item.className = `target-player-item ${isSelected ? 'selected' : ''}`;
+            item.innerHTML = `
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-weight:bold; font-size:0.86rem;">👤 ${opp.name}</span>
+                <span style="font-size:0.72rem; color:#ffd700;">(得点:${opp.scoreCardCount}枚)</span>
+              </div>
+              <span class="trade-check-badge">${isSelected ? '✔ 選択中' : 'タップして選択'}</span>
+            `;
+            item.onclick = () => {
+              selectedTradePartnerId = opp.id;
+              renderTradeOptions();
+              soundManager.playDraw();
+            };
+            tradePartnersContainer.appendChild(item);
+          });
+        }
       }
 
       if (tradeMyCardsContainer) {
         tradeMyCardsContainer.innerHTML = '';
-        scoreCards.forEach((sc, sIdx) => {
-          const icon = sc.type === 'bomb' ? '💥' : (sc.value === 3 ? '💎' : (sc.value === 2 ? '🟡' : '⛏️'));
-          const label = sc.type === 'bomb' ? '爆弾 (0点)' : `${sc.name} (${sc.value}点)`;
-          const isSelected = (sIdx === selectedTradeScoreCardIndex);
-          const item = document.createElement('div');
-          item.className = `trade-option-item ${isSelected ? 'selected' : ''}`;
-          item.innerHTML = `
-            <span>${icon} ${label}</span>
-            <span class="trade-check-badge">${isSelected ? '✔ これを渡す' : 'タップして選択'}</span>
-          `;
-          item.onclick = () => {
-            selectedTradeScoreCardIndex = sIdx;
-            renderTradeOptions();
-            soundManager.playDraw();
-          };
-          tradeMyCardsContainer.appendChild(item);
-        });
+        if (scoreCards.length === 0) {
+          tradeMyCardsContainer.innerHTML = '<div style="font-size:0.75rem; color:#888; padding:6px; text-align:center;">渡せる得点カードがありません</div>';
+        } else {
+          scoreCards.forEach((sc, sIdx) => {
+            const icon = sc.type === 'bomb' ? '💥' : (sc.value === 3 ? '💎' : (sc.value === 2 ? '🟡' : '⛏️'));
+            const label = sc.type === 'bomb' ? '爆弾 (0点)' : `${sc.name} (${sc.value}点)`;
+            const isSelected = (sIdx === selectedTradeScoreCardIndex);
+            const item = document.createElement('div');
+            item.className = `trade-option-item ${isSelected ? 'selected' : ''}`;
+            item.innerHTML = `
+              <span>${icon} ${label}</span>
+              <span class="trade-check-badge">${isSelected ? '✔ これを渡す' : 'タップして選択'}</span>
+            `;
+            item.onclick = () => {
+              selectedTradeScoreCardIndex = sIdx;
+              renderTradeOptions();
+              soundManager.playDraw();
+            };
+            tradeMyCardsContainer.appendChild(item);
+          });
+        }
       }
     }
 
-    if (tradeStep1NextBtn) {
-      tradeStep1NextBtn.addEventListener('click', () => {
+    if (tradeCancelBtn) {
+      tradeCancelBtn.addEventListener('click', () => {
+        pendingEventIndex = null;
+        pendingCardId = null;
+        if (tradeModal) tradeModal.style.display = 'none';
+        soundManager.playDraw();
+      });
+    }
+
+    if (confirmTradeBtn) {
+      confirmTradeBtn.addEventListener('click', () => {
         if (!selectedTradePartnerId) {
           const validOpponents = (currentClientState && currentClientState.opponents)
             ? currentClientState.opponents.filter(o => o.scoreCardCount > 0)
             : [];
           if (validOpponents.length > 0) selectedTradePartnerId = validOpponents[0].id;
         }
-        soundManager.playPick();
-        setTradeStep(2);
-      });
-    }
 
-    if (tradeStep2BackBtn) {
-      tradeStep2BackBtn.addEventListener('click', () => {
-        soundManager.playDraw();
-        setTradeStep(1);
-      });
-    }
+        if (!selectedTradePartnerId) {
+          showModal('取引不可', '取引相手を選択してください。');
+          return;
+        }
 
-    if (confirmTradeBtn) {
-      confirmTradeBtn.addEventListener('click', () => {
         soundManager.playPick();
-        socket.emit('choose_trade_options', {
-          targetPlayerId: selectedTradePartnerId,
-          selectedScoreCardIndex: selectedTradeScoreCardIndex
-        });
         if (tradeModal) tradeModal.style.display = 'none';
+
+        if (pendingEventIndex !== null) {
+          socket.emit('use_event', {
+            cardIndex: pendingEventIndex,
+            targetPlayerId: selectedTradePartnerId,
+            selectedScoreCardIndex: selectedTradeScoreCardIndex
+          });
+          pendingEventIndex = null;
+          pendingCardId = null;
+        } else {
+          socket.emit('choose_trade_options', {
+            targetPlayerId: selectedTradePartnerId,
+            selectedScoreCardIndex: selectedTradeScoreCardIndex
+          });
+        }
       });
     }
 
-    // 公開モーダル制御（カード使用後にサーバーから通知）
+    if (tradeModal) {
+      tradeModal.addEventListener('click', (e) => {
+        if (e.target === tradeModal && pendingEventIndex !== null) {
+          pendingEventIndex = null;
+          pendingCardId = null;
+          tradeModal.style.display = 'none';
+        }
+      });
+    }
+
+    // 公開モーダル制御（相手プレイヤー選択をワンストップで実施）
     const revealModal = document.getElementById('revealModal');
     const revealPartnersContainer = document.getElementById('revealPartnersContainer');
+    const revealCancelBtn = document.getElementById('revealCancelBtn');
     const confirmRevealBtn = document.getElementById('confirmRevealBtn');
+
+    function openRevealModalDirectly() {
+      if (revealCancelBtn) revealCancelBtn.style.display = 'block';
+      renderRevealOptions();
+      if (revealModal) revealModal.style.display = 'flex';
+      soundManager.playDraw();
+    }
 
     socket.on('reveal_select_dialog', () => {
       openAfterShowcase(() => {
         soundManager.playEvent();
+        pendingEventIndex = null;
+        if (revealCancelBtn) revealCancelBtn.style.display = 'none';
         renderRevealOptions();
         if (revealModal) revealModal.style.display = 'flex';
       });
@@ -2209,34 +2201,77 @@
 
       if (revealPartnersContainer) {
         revealPartnersContainer.innerHTML = '';
-        opponents.forEach((opp) => {
-          const isSelected = (opp.id === selectedRevealTargetId);
-          const item = document.createElement('div');
-          item.className = `target-player-item ${isSelected ? 'selected' : ''}`;
-          item.innerHTML = `
-            <div style="display:flex; align-items:center; gap:6px;">
-              <span style="font-weight:bold; font-size:0.86rem;">👤 ${opp.name}</span>
-              <span style="font-size:0.72rem; color:#aaa;">(得点:${opp.scoreCardCount}枚 / EV:${opp.eventCardCount}枚)</span>
-            </div>
-            <span class="trade-check-badge">${isSelected ? '✔ 指名中' : 'タップして選択'}</span>
-          `;
-          item.onclick = () => {
-            selectedRevealTargetId = opp.id;
-            renderRevealOptions();
-            soundManager.playDraw();
-          };
-          revealPartnersContainer.appendChild(item);
-        });
+        if (opponents.length === 0) {
+          revealPartnersContainer.innerHTML = '<div style="font-size:0.75rem; color:#888; padding:6px; text-align:center;">対象となるプレイヤーがいません</div>';
+        } else {
+          opponents.forEach((opp) => {
+            const isSelected = (opp.id === selectedRevealTargetId);
+            const item = document.createElement('div');
+            item.className = `target-player-item ${isSelected ? 'selected' : ''}`;
+            item.innerHTML = `
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-weight:bold; font-size:0.86rem;">👤 ${opp.name}</span>
+                <span style="font-size:0.72rem; color:#aaa;">(得点:${opp.scoreCardCount}枚 / EV:${opp.eventCardCount}枚)</span>
+              </div>
+              <span class="trade-check-badge">${isSelected ? '✔ 指名中' : 'タップして選択'}</span>
+            `;
+            item.onclick = () => {
+              selectedRevealTargetId = opp.id;
+              renderRevealOptions();
+              soundManager.playDraw();
+            };
+            revealPartnersContainer.appendChild(item);
+          });
+        }
       }
+    }
+
+    if (revealCancelBtn) {
+      revealCancelBtn.addEventListener('click', () => {
+        pendingEventIndex = null;
+        pendingCardId = null;
+        if (revealModal) revealModal.style.display = 'none';
+        soundManager.playDraw();
+      });
     }
 
     if (confirmRevealBtn) {
       confirmRevealBtn.addEventListener('click', () => {
+        if (!selectedRevealTargetId) {
+          const opponents = (currentClientState && currentClientState.opponents) ? currentClientState.opponents : [];
+          if (opponents.length > 0) selectedRevealTargetId = opponents[0].id;
+        }
+
+        if (!selectedRevealTargetId) {
+          showModal('公開不可', '対象プレイヤーを選択してください。');
+          return;
+        }
+
         soundManager.playPick();
-        socket.emit('choose_reveal_target', {
-          targetPlayerId: selectedRevealTargetId
-        });
         if (revealModal) revealModal.style.display = 'none';
+
+        if (pendingEventIndex !== null) {
+          socket.emit('use_event', {
+            cardIndex: pendingEventIndex,
+            targetPlayerId: selectedRevealTargetId
+          });
+          pendingEventIndex = null;
+          pendingCardId = null;
+        } else {
+          socket.emit('choose_reveal_target', {
+            targetPlayerId: selectedRevealTargetId
+          });
+        }
+      });
+    }
+
+    if (revealModal) {
+      revealModal.addEventListener('click', (e) => {
+        if (e.target === revealModal && pendingEventIndex !== null) {
+          pendingEventIndex = null;
+          pendingCardId = null;
+          revealModal.style.display = 'none';
+        }
       });
     }
 

@@ -24,6 +24,7 @@ let gameState = {
   players: [], // { id, name, scoreCards: [], eventCards: [] }
   currentTurnIndex: 0,
   isGameStarted: false,
+  isGameOver: false,
   pendingDiscardPlayerId: null,
   pendingSurvey: null, // { playerId, candidates: [] }
   pendingTrade: null,  // { playerId }
@@ -162,6 +163,21 @@ function drawFromMine(player, count) {
   return drawn;
 }
 
+// 鉱山切れまたは鉱石全枯渇の判定
+function checkMineDepletion() {
+  if (gameState.decks.mineDeck.length === 0) {
+    endGame('empty');
+    return true;
+  }
+  // 鉱山に残っているカードがすべて爆弾（鉱石がすべて採掘された場合）
+  const hasOre = gameState.decks.mineDeck.some(c => c.type !== 'bomb');
+  if (!hasOre) {
+    endGame('only_bombs');
+    return true;
+  }
+  return false;
+}
+
 io.on('connection', (socket) => {
   // 現在の参加者数を新規接続者にも即時送信
   socket.emit('lobby_status', {
@@ -196,6 +212,7 @@ io.on('connection', (socket) => {
     gameState.decks = initializeDecks();
     gameState.discardActionDeck = [];
     gameState.isGameStarted = true;
+    gameState.isGameOver = false;
     gameState.pendingDiscardPlayerId = null;
     gameState.pendingSurvey = null;
     gameState.pendingTrade = null;
@@ -212,6 +229,7 @@ io.on('connection', (socket) => {
   // 再戦・ロビーへ戻る
   socket.on('restart_game', () => {
     gameState.isGameStarted = false;
+    gameState.isGameOver = false;
     gameState.pendingDiscardPlayerId = null;
     gameState.pendingSurvey = null;
     gameState.pendingTrade = null;
@@ -274,9 +292,8 @@ io.on('connection', (socket) => {
       });
     }
 
-    // 鉱山切れチェック
-    if (gameState.decks.mineDeck.length === 0) {
-      endGame();
+    // 鉱山切れ・鉱石枯渇チェック
+    if (checkMineDepletion()) {
       return;
     }
 
@@ -305,9 +322,8 @@ io.on('connection', (socket) => {
     if (currentPlayer.eventCards.length <= 4) {
       gameState.pendingDiscardPlayerId = null;
 
-      // 鉱山切れチェック
-      if (gameState.decks.mineDeck.length === 0) {
-        endGame();
+      // 鉱山切れ・鉱石枯渇チェック
+      if (checkMineDepletion()) {
         return;
       }
       nextTurn();
@@ -613,9 +629,8 @@ io.on('connection', (socket) => {
       publicText: `🔍 ${player.name} は【調査】で鉱山から1枚選んで獲得しました`
     });
 
-    // 鉱山切れチェック
-    if (gameState.decks.mineDeck.length === 0) {
-      endGame();
+    // 鉱山切れ・鉱石枯渇チェック
+    if (checkMineDepletion()) {
       return;
     }
 
@@ -739,57 +754,92 @@ io.on('connection', (socket) => {
   });
 });
 
-function endGame() {
+function endGame(reason) {
+  if (gameState.isGameOver) return;
+  gameState.isGameOver = true;
+
   gameState.logs.push('===================');
-  gameState.logs.push('鉱山がなくなりました！ゲーム終了！');
+  const isAllMined = reason === 'only_bombs' || (gameState.decks.mineDeck && gameState.decks.mineDeck.length > 0 && gameState.decks.mineDeck.every(c => c.type === 'bomb'));
+  if (isAllMined) {
+    gameState.logs.push('鉱山から鉱石がすべて採りつくされました！');
+  } else {
+    gameState.logs.push('鉱山がなくなりました！ゲーム終了！');
+  }
+
+  // 裏技判定: 爆弾3枚、爆破2枚を所持してゲームを終了したプレイヤーがいるか？
+  // ※爆弾は scoreCards (type === 'bomb')
+  // ※爆破は eventCards (id === 'blast' または name === '爆破')
+  const trickPlayer = gameState.players.find(p => {
+    const bCount = (p.scoreCards || []).filter(c => c.type === 'bomb').length;
+    const blastCount = (p.eventCards || []).filter(c => c.id === 'blast' || c.name === '爆破').length;
+    return bCount >= 3 && blastCount >= 2;
+  });
+
+  if (trickPlayer) {
+    gameState.logs.push('💥💥💥【裏技発動！超大爆破】💥💥💥');
+    gameState.logs.push(`⚠️ 【${trickPlayer.name}】が「爆弾3枚」と「爆破2枚」を所持！連鎖大爆発により、自分以外のプレイヤーの得点カードがすべて破壊されました！`);
+  }
 
   // 勝敗計算＆爆弾処理
   let results = gameState.players.map(p => {
     let cards = [...p.scoreCards];
     const bombCount = cards.filter(c => c.type === 'bomb').length;
+    const blastCount = (p.eventCards || []).filter(c => c.id === 'blast' || c.name === '爆破').length;
+    const isTrickUser = !!(trickPlayer && p.id === trickPlayer.id);
+    const isTrickVictim = !!(trickPlayer && p.id !== trickPlayer.id);
     let destroyedCards = [];
 
     // 爆弾判定前の暫定得点
     let initialScore = p.scoreCards.reduce((sum, c) => sum + (typeof c.value === 'number' && c.type !== 'bomb' ? c.value : 0), 0);
 
-    // 爆弾所持の場合、爆弾の枚数分だけダイヤ ➔ 金 ➔ 石炭の順に優先的に破壊
-    for (let b = 0; b < bombCount; b++) {
-      const priorityOrder = ['ダイヤ', '金', '石炭'];
-      let targetIdx = -1;
+    if (isTrickVictim) {
+      // 裏技により、自分以外のプレイヤーの得点カードをすべて破壊！
+      destroyedCards = cards.filter(c => c.type !== 'bomb');
+      cards = cards.filter(c => c.type === 'bomb'); // 得点カード全滅
+    } else {
+      // 爆弾所持の場合、爆弾の枚数分だけダイヤ ➔ 金 ➔ 石炭の順に優先的に破壊
+      for (let b = 0; b < bombCount; b++) {
+        const priorityOrder = ['ダイヤ', '金', '石炭'];
+        let targetIdx = -1;
 
-      for (const cardName of priorityOrder) {
-        targetIdx = cards.findIndex(c => c.type !== 'bomb' && c.name === cardName);
-        if (targetIdx !== -1) break;
-      }
+        for (const cardName of priorityOrder) {
+          targetIdx = cards.findIndex(c => c.type !== 'bomb' && c.name === cardName);
+          if (targetIdx !== -1) break;
+        }
 
-      // フォールバック: 点数の高い順
-      if (targetIdx === -1) {
-        let maxVal = -1;
-        cards.forEach((c, idx) => {
-          if (c.type !== 'bomb' && typeof c.value === 'number' && c.value > maxVal) {
-            maxVal = c.value;
-            targetIdx = idx;
-          }
-        });
-      }
+        // フォールバック: 点数の高い順
+        if (targetIdx === -1) {
+          let maxVal = -1;
+          cards.forEach((c, idx) => {
+            if (c.type !== 'bomb' && typeof c.value === 'number' && c.value > maxVal) {
+              maxVal = c.value;
+              targetIdx = idx;
+            }
+          });
+        }
 
-      if (targetIdx !== -1) {
-        const removed = cards.splice(targetIdx, 1)[0];
-        destroyedCards.push(removed);
-      } else {
-        break; // 破壊できる得点カードがなくなった場合
+        if (targetIdx !== -1) {
+          const removed = cards.splice(targetIdx, 1)[0];
+          destroyedCards.push(removed);
+        } else {
+          break; // 破壊できる得点カードがなくなった場合
+        }
       }
     }
 
     // 爆弾処理後の最終得点集計 (爆弾は0点扱い)
     let finalScore = cards.reduce((sum, c) => sum + (typeof c.value === 'number' && c.type !== 'bomb' ? c.value : 0), 0);
     return {
+      id: p.id,
       name: p.name,
       initialScore: initialScore,
       finalScore: finalScore,
       score: finalScore, // 後方互換用
       hasBomb: bombCount > 0,
       bombCount: bombCount,
+      blastCount: blastCount,
+      isTrickUser: isTrickUser,
+      isTrickVictim: isTrickVictim,
       destroyedCards: destroyedCards.map(c => ({ name: c.name, value: c.value })),
       destroyedCard: destroyedCards[0] ? { name: destroyedCards[0].name, value: destroyedCards[0].value } : null,
       totalDeductedScore: initialScore - finalScore,
@@ -802,7 +852,16 @@ function endGame() {
   let winners = results.filter(r => r.finalScore === maxScore).map(r => r.name);
 
   gameState.logs.push(`勝者: ${winners.join(', ')} (得点: ${maxScore}点)`);
-  broadcastState({ gameOver: true, results: results, winners: winners, maxScore: maxScore });
+  broadcastState({
+    gameOver: true,
+    reason: isAllMined ? 'only_bombs' : 'empty',
+    endMessage: isAllMined ? '鉱山から鉱石がすべて採りつくされました！' : '鉱山がなくなりました！ゲーム終了！',
+    secretTrickActivated: !!trickPlayer,
+    secretTrickPlayerName: trickPlayer ? trickPlayer.name : null,
+    results: results,
+    winners: winners,
+    maxScore: maxScore
+  });
 }
 
 const PORT = process.env.PORT || 3000;

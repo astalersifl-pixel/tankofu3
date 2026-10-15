@@ -1369,7 +1369,7 @@
     <div class="game-over-banner">
       <div class="game-over-subtext">MINES DEPLETED</div>
       <div class="game-over-maintext">⛏️ 終了！</div>
-      <div class="game-over-desc">鉱山が枯渇しました！ 結果発表へ...</div>
+      <div class="game-over-desc" id="gameOverDesc">鉱山が枯渇しました！ 結果発表へ...</div>
     </div>
   </div>
 
@@ -1449,7 +1449,7 @@
 
         <div>
           <div class="rules-section-title">ゲーム終了と勝敗</div>
-          <p><strong>鉱山山札が0枚になった瞬間</strong>にゲーム終了！<br>爆弾を持っている人の得点が破壊された後、最終得点の合計が最も高いプレイヤーが勝者となります。</p>
+          <p><strong>鉱山山札が0枚になった瞬間</strong>、または<strong>鉱山から鉱石がすべて採掘された瞬間</strong>にゲーム終了！<br>爆弾を持っている人の得点が破壊された後、最終得点の合計が最も高いプレイヤーが勝者となります。<br><span style="color:#ffd700; font-size:0.75rem; font-weight:bold; display:inline-block; margin-top:4px;">ある条件を満たすとすごいことが起きるかも…</span></p>
         </div>
       </div>
     </div>
@@ -2750,6 +2750,14 @@
       soundManager.playGameOver();
       triggerScreenShake();
       const overlay = document.getElementById('gameOverOverlay');
+      const descEl = document.getElementById('gameOverDesc');
+      if (descEl && data) {
+        if (data.reason === 'only_bombs' || data.endMessage === '鉱山から鉱石がすべて採りつくされました！') {
+          descEl.innerText = '鉱山から鉱石がすべて採りつくされました！ 結果発表へ...';
+        } else {
+          descEl.innerText = '鉱山がなくなりました！ 結果発表へ...';
+        }
+      }
       if (overlay) {
         overlay.style.display = 'flex';
         overlay.style.opacity = '1';
@@ -2864,26 +2872,46 @@
       // 2. 爆弾の処理フェーズ
       function revealBombProcessing() {
         resultBombList.innerHTML = '';
-        const bombPlayers = data.results.filter(r => r.hasBomb);
+        const bombPlayers = data.results.filter(r => r.hasBomb || r.isTrickVictim);
 
-        if (bombPlayers.length > 0) {
+        if (data.secretTrickActivated) {
+          const trickAlert = document.createElement('div');
+          trickAlert.className = 'pop-in';
+          trickAlert.style.cssText = 'background:linear-gradient(135deg, rgba(185,28,28,0.85), rgba(127,29,29,0.95)); border:1.5px solid #ef4444; border-radius:8px; padding:10px; margin-bottom:10px; text-align:center; box-shadow:0 0 16px rgba(239,68,68,0.5);';
+          trickAlert.innerHTML = `
+            <div style="font-weight:900; font-size:1rem; color:#ffd700; text-shadow:0 0 8px rgba(255,215,0,0.6);">💥💥【裏技発動！超大爆破】💥💥</div>
+            <div style="font-size:0.78rem; color:#fee2e2; margin-top:4px; line-height:1.4;">【${data.secretTrickPlayerName}】が「爆弾3枚」＆「爆破2枚」を所持してゲーム終了！<br><strong style="color:#fca5a5;">連鎖大爆発により、自分以外のプレイヤーの得点カードがすべて破壊されました！</strong></div>
+          `;
+          resultBombList.appendChild(trickAlert);
+        }
+
+        if (bombPlayers.length > 0 || data.secretTrickActivated) {
           soundManager.playBomb();
           triggerScreenShake();
           data.results.forEach(r => {
             const item = document.createElement('div');
-            if (r.hasBomb) {
+            const destroyedList = (r.destroyedCards && r.destroyedCards.length > 0)
+              ? r.destroyedCards
+              : (r.destroyedCard ? [r.destroyedCard] : []);
+            const totalLost = (typeof r.totalDeductedScore === 'number')
+              ? r.totalDeductedScore
+              : destroyedList.reduce((sum, c) => sum + (c.value || 0), 0);
+
+            if (r.isTrickUser) {
+              item.className = 'result-bomb-item pop-in';
+              item.style.borderColor = '#ffd700';
+              item.style.background = 'rgba(255,215,0,0.12)';
+              const cardsText = destroyedList.length > 0 ? destroyedList.map(c => `【${c.name} (${c.value}点)】`).join(' ＆ ') : 'なし';
+              item.innerHTML = `👑 <strong style="color:#ffd700;">${r.name}</strong>: 💣【裏技・超大爆破発動者】 (爆弾3枚・爆破2枚)<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ 自身の爆弾爆発: ${cardsText} 破壊 (-${totalLost}点) / 他プレイヤーの得点を全破壊！`;
+            } else if (r.isTrickVictim) {
+              item.className = 'result-bomb-item pop-in';
+              const cardsText = destroyedList.length > 0 ? destroyedList.map(c => `【${c.name} (${c.value}点)】`).join(' ＆ ') : '得点カードなし';
+              item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 超大爆破の直撃！<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ <span style="color:#ff6b6b; font-weight:bold;">得点カード全滅！</span> ${cardsText} をすべて破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${totalLost}点)</span>`;
+            } else if (r.hasBomb) {
               item.className = 'result-bomb-item';
               const bombCount = r.bombCount || 1;
-              const destroyedList = (r.destroyedCards && r.destroyedCards.length > 0)
-                ? r.destroyedCards
-                : (r.destroyedCard ? [r.destroyedCard] : []);
-
               if (destroyedList.length > 0) {
                 const cardsText = destroyedList.map(c => `【${c.name} (${c.value}点)】`).join(' ＆ ');
-                const totalLost = (typeof r.totalDeductedScore === 'number')
-                  ? r.totalDeductedScore
-                  : destroyedList.reduce((sum, c) => sum + (c.value || 0), 0);
-                
                 const countBadge = bombCount > 1 ? ` (所持${bombCount}枚 ➔ ${destroyedList.length}枚破壊)` : '';
                 item.innerHTML = `💥 <strong style="color:#ff7777;">${r.name}</strong>: 爆弾爆発！${countBadge}<br>&nbsp;&nbsp;&nbsp;&nbsp;➔ ${cardsText} を破壊！ <span style="color:#ff6b6b; font-weight:bold;">(-${totalLost}点)</span>`;
               } else {
@@ -2907,7 +2935,7 @@
         resultBombSection.classList.add('pop-in');
 
         // 爆弾処理後に、最終的な順位を一度に表示！
-        setTimeout(revealFinalRankingsAllAtOnce, 1700);
+        setTimeout(revealFinalRankingsAllAtOnce, data.secretTrickActivated ? 2300 : 1700);
       }
 
       // 3. 爆弾処理後の最終順位を一度に表示！

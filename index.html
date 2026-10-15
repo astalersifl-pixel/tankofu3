@@ -1154,6 +1154,7 @@
       <input type="text" id="playerNameInput" placeholder="プレイヤー名を入力" maxlength="10" />
       <button id="joinBtn" class="btn-join">ゲームに参加する</button>
       <button id="startBtn" class="btn-start" style="display:none;">ゲームを開始する</button>
+      <div style="font-size:0.75rem; color:#ffd700; text-align:center; margin-top:-2px;">🎲 開始時に手番の順番（先攻・後攻）はランダムに決まります</div>
       <button id="lobbyRulesBtn" class="btn-rules-lobby" type="button">📖 ルール・カード一覧</button>
     </div>
 
@@ -2382,6 +2383,7 @@
 
     // 前回の状態キャッシュ（演出判定用）
     let lastStateCache = {
+      isGameStarted: false,
       isMyTurn: false,
       scoreCardCount: 0,
       diamondCount: 0,
@@ -2693,23 +2695,32 @@
           myTurnBadge.style.color = '#ffd700';
           drawBtn.classList.add('btn-my-turn');
 
-          // ターンが自分に移った瞬間に通知音
-          if (!lastStateCache.isMyTurn && state.isGameStarted) {
+          // ゲーム開始時またはターンが自分に移った瞬間に通知音
+          if (!lastStateCache.isGameStarted && state.isGameStarted) {
+            soundManager.playMyTurn();
+            showToast('🎲 あなたが1番手（先攻）です！', 'diamond');
+          } else if (!lastStateCache.isMyTurn && state.isGameStarted) {
             soundManager.playMyTurn();
             showToast('🔔 あなたのターンです！');
           }
         } else {
           drawBtn.disabled = true;
-          myTurnBadge.innerText = '相手のターン中';
+          myTurnBadge.innerText = state.currentTurnPlayerName ? `⏳ ${state.currentTurnPlayerName} のターン中` : '相手のターン中';
           myTurnBadge.style.color = '#888';
           drawBtn.classList.remove('btn-my-turn');
           if (eventConfirmDialog) eventConfirmDialog.style.display = 'none';
           pendingEventIndex = null;
+
+          if (!lastStateCache.isGameStarted && state.isGameStarted) {
+            soundManager.playDraw();
+            showToast(`🎲 1番手: ${state.currentTurnPlayerName || '相手'}`);
+          }
         }
       }
 
       // キャッシュ更新
       lastStateCache = {
+        isGameStarted: state.isGameStarted,
         isMyTurn: state.isMyTurn,
         scoreCardCount: totalCardCount,
         diamondCount: counts.diamond.count,

@@ -116,6 +116,9 @@ function broadcastState(extraData = null) {
       isGameStarted: gameState.isGameStarted,
       playerCount: gameState.players.length,
       allPlayerNames: gameState.players.map(pl => pl.name),
+      currentTurnPlayerName: currentTurnPlayer ? currentTurnPlayer.name : null,
+      currentTurnIndex: gameState.currentTurnIndex,
+      turnOrder: gameState.players.map(pl => pl.name),
       myHand: { scoreCards: p.scoreCards, eventCards: p.eventCards },
       opponents: opponentsList,
       deckCounts: {
@@ -188,6 +191,8 @@ io.on('connection', (socket) => {
     if (gameState.players.length < 1) {
       return socket.emit('error_message', 'プレイヤーが足りません');
     }
+    // 始める順番（手番順）をランダムにシャッフル
+    gameState.players = shuffle(gameState.players);
     gameState.decks = initializeDecks();
     gameState.discardActionDeck = [];
     gameState.isGameStarted = true;
@@ -197,7 +202,10 @@ io.on('connection', (socket) => {
     gameState.pendingReveal = null;
     gameState.currentTurnIndex = 0;
     gameState.players.forEach(p => { p.scoreCards = []; p.eventCards = []; });
-    gameState.logs.push('ゲームを開始しました！');
+
+    const orderText = gameState.players.map((p, idx) => `${idx + 1}番手: ${p.name}`).join('、');
+    gameState.logs.push(`🎲 手番順をランダムに決定しました（${orderText}）`);
+    gameState.logs.push(`ゲームを開始しました！最初のプレイヤーは【${gameState.players[0].name}】さんです。`);
     broadcastState();
   });
 

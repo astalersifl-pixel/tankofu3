@@ -83,6 +83,20 @@ function shuffle(array) {
   return arr;
 }
 
+function getLobbyStatus() {
+  return {
+    playerCount: gameState.players.length,
+    players: gameState.players.map(p => ({
+      name: p.name,
+      isOnline: p.isOnline !== false
+    })),
+    isGameStarted: gameState.isGameStarted,
+    disconnectedPlayers: gameState.players
+      .filter(p => p.isOnline === false)
+      .map(p => ({ name: p.name, token: p.token }))
+  };
+}
+
 function broadcastState(extraData = null) {
   const currentTurnPlayer = gameState.players[gameState.currentTurnIndex];
   const discardPlayer = gameState.players.find(pl => pl.id === gameState.pendingDiscardPlayerId);
@@ -92,13 +106,14 @@ function broadcastState(extraData = null) {
 
   gameState.players.forEach(p => {
     const opponentsList = gameState.players
-      .filter(other => other.id !== p.id)
+      .filter(other => (other.token ? other.token !== p.token : other.id !== p.id))
       .map(other => ({
         id: other.id,
         name: other.name,
         scoreCardCount: other.scoreCards.length,
         eventCardCount: other.eventCards.length,
-        isCurrentTurn: currentTurnPlayer && currentTurnPlayer.id === other.id
+        isCurrentTurn: currentTurnPlayer && (currentTurnPlayer.id === other.id || (other.token && currentTurnPlayer.token === other.token)),
+        isOnline: other.isOnline !== false
       }));
 
     const playerLogs = gameState.logs.slice(-30).map(logItem => {
@@ -114,10 +129,13 @@ function broadcastState(extraData = null) {
 
     const clientState = {
       myId: p.id,
+      myToken: p.token,
+      isOnline: p.isOnline !== false,
       isGameStarted: gameState.isGameStarted,
       playerCount: gameState.players.length,
       allPlayerNames: gameState.players.map(pl => pl.name),
       currentTurnPlayerName: currentTurnPlayer ? currentTurnPlayer.name : null,
+      currentTurnPlayerIsOnline: currentTurnPlayer ? currentTurnPlayer.isOnline !== false : true,
       currentTurnIndex: gameState.currentTurnIndex,
       turnOrder: gameState.players.map(pl => pl.name),
       myHand: { scoreCards: p.scoreCards, eventCards: p.eventCards },
@@ -127,7 +145,7 @@ function broadcastState(extraData = null) {
         action: gameState.decks.actionDeck ? gameState.decks.actionDeck.length : 0,
         event: gameState.decks.eventDeck ? gameState.decks.eventDeck.length : 0
       },
-      isMyTurn: currentTurnPlayer && currentTurnPlayer.id === p.id,
+      isMyTurn: currentTurnPlayer && (currentTurnPlayer.id === p.id || (p.token && currentTurnPlayer.token === p.token)),
       mustDiscard: gameState.pendingDiscardPlayerId === p.id,
       pendingDiscardPlayerId: gameState.pendingDiscardPlayerId,
       pendingDiscardPlayerName: discardPlayer ? discardPlayer.name : null,
@@ -141,7 +159,9 @@ function broadcastState(extraData = null) {
       extraData: extraData
     };
 
-    io.to(p.id).emit('state_update', clientState);
+    if (p.isOnline !== false && p.id) {
+      io.to(p.id).emit('state_update', clientState);
+    }
   });
 }
 
@@ -179,27 +199,162 @@ function checkMineDepletion() {
 }
 
 io.on('connection', (socket) => {
-  // 現在の参加者数を新規接続者にも即時送信
-  socket.emit('lobby_status', {
-    playerCount: gameState.players.length,
-    players: gameState.players.map(p => p.name),
-    isGameStarted: gameState.isGameStarted
-  });
+  // 現在のロビーステータス（切断中プレイヤー情報を含む）を新規接続者へ送信
+  socket.emit('lobby_status', getLobbyStatus());
 
-  socket.on('join_game', (playerName) => {
-    if (gameState.isGameStarted) return socket.emit('error_message', 'ゲーム中のため参加できません');
-    if (gameState.players.length >= 5) return socket.emit('error_message', '満員です（最大5名）');
+  function handlePlayerJoinOrReconnect(payload) {
+    let playerName = '';
+    let clientToken = null;
+    if (typeof payload === 'string') {
+      playerName = payload.trim();
+    } else if (payload && typeof payload === 'object') {
+      playerName = (payload.name || '').trim();
+      clientToken = payload.token || null;
+    }
 
-    const cleanName = (playerName || '').trim() || `プレイヤー${gameState.players.length + 1}`;
+    // 1. 既存プレイヤーの復帰判定 (Token一致、または同名で切断中、またはゲーム進行中同名)
+    let existingPlayer = null;
+    if (clientToken) {
+      existingPlayer = gameState.players.find(p => p.token === clientToken);
+    }
+    if (!existingPlayer && playerName) {
+      existingPlayer = gameState.players.find(p => p.name === playerName && p.isOnline === false);
+      if (!existingPlayer && gameState.isGameStarted) {
+        existingPlayer = gameState.players.find(p => p.name === playerName);
+      }
+    }
+
+    if (existingPlayer) {
+      const oldSocketId = existingPlayer.id;
+      existingPlayer.id = socket.id;
+      if (clientToken && !existingPlayer.token) {
+        existingPlayer.token = clientToken;
+      }
+      existingPlayer.isOnline = true;
+      existingPlayer.disconnectedAt = null;
+
+      // 保留アクションの socket.id を更新
+      if (gameState.pendingDiscardPlayerId === oldSocketId) {
+        gameState.pendingDiscardPlayerId = socket.id;
+      }
+      if (gameState.pendingSurvey && gameState.pendingSurvey.playerId === oldSocketId) {
+        gameState.pendingSurvey.playerId = socket.id;
+      }
+      if (gameState.pendingTrade && gameState.pendingTrade.playerId === oldSocketId) {
+        gameState.pendingTrade.playerId = socket.id;
+      }
+      if (gameState.pendingReveal && gameState.pendingReveal.playerId === oldSocketId) {
+        gameState.pendingReveal.playerId = socket.id;
+      }
+
+      gameState.logs.push(`🔄 ${existingPlayer.name} が部屋に復帰しました！`);
+
+      socket.emit('join_success', {
+        name: existingPlayer.name,
+        token: existingPlayer.token,
+        isRejoin: true,
+        isGameStarted: gameState.isGameStarted
+      });
+
+      // 調査イベントの選択待ちだった場合は選択肢を再送
+      if (gameState.pendingSurvey && gameState.pendingSurvey.playerId === socket.id) {
+        socket.emit('survey_options', {
+          candidates: gameState.pendingSurvey.candidates.map((c, idx) => ({
+            idx,
+            type: c.type,
+            name: c.name,
+            value: c.value
+          }))
+        });
+      }
+
+      // 取引イベントの選択待ちだった場合はダイアログ再送
+      if (gameState.pendingTrade && gameState.pendingTrade.playerId === socket.id) {
+        socket.emit('trade_select_dialog');
+      }
+
+      broadcastState();
+      io.emit('lobby_status', getLobbyStatus());
+      return;
+    }
+
+    // 2. 新規参加判定
+    if (gameState.isGameStarted) {
+      return socket.emit('error_message', 'ゲーム進行中のため新規参加はできません（退席中のプレイヤー名を入力して復帰してください）');
+    }
+
+    if (gameState.players.length >= 5) {
+      return socket.emit('error_message', '満員です（最大5名）');
+    }
+
+    const cleanName = playerName || `プレイヤー${gameState.players.length + 1}`;
+    const newToken = clientToken || ('tok_' + Math.random().toString(36).slice(2) + Date.now().toString(36));
     const newPlayer = {
       id: socket.id,
+      token: newToken,
       name: cleanName,
+      isOnline: true,
       scoreCards: [],
       eventCards: []
     };
     gameState.players.push(newPlayer);
     gameState.logs.push(`${newPlayer.name} が入室しました（計${gameState.players.length}名）`);
+
+    socket.emit('join_success', {
+      name: newPlayer.name,
+      token: newPlayer.token,
+      isRejoin: false,
+      isGameStarted: false
+    });
+
     broadcastState();
+    io.emit('lobby_status', getLobbyStatus());
+  }
+
+  socket.on('join_game', handlePlayerJoinOrReconnect);
+  socket.on('reconnect_player', handlePlayerJoinOrReconnect);
+
+  socket.on('skip_offline_turn', () => {
+    if (!gameState.isGameStarted || gameState.isGameOver) return;
+    const currentTurnPlayer = gameState.players[gameState.currentTurnIndex];
+    if (!currentTurnPlayer || currentTurnPlayer.isOnline !== false) {
+      return socket.emit('error_message', '現在の手番プレイヤーはオンラインです');
+    }
+
+    // 保留アクションを安全に解除
+    if (gameState.pendingSurvey && gameState.pendingSurvey.playerId === currentTurnPlayer.id) {
+      gameState.decks.mineDeck.push(...gameState.pendingSurvey.candidates);
+      gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
+      gameState.pendingSurvey = null;
+    }
+    if (gameState.pendingDiscardPlayerId === currentTurnPlayer.id) {
+      if (currentTurnPlayer.eventCards.length > 4) {
+        const discarded = currentTurnPlayer.eventCards.pop();
+        if (gameState.decks.eventDeck) gameState.decks.eventDeck.unshift(discarded);
+      }
+      gameState.pendingDiscardPlayerId = null;
+    }
+    if (gameState.pendingTrade && gameState.pendingTrade.playerId === currentTurnPlayer.id) {
+      gameState.pendingTrade = null;
+    }
+    if (gameState.pendingReveal && gameState.pendingReveal.playerId === currentTurnPlayer.id) {
+      gameState.pendingReveal = null;
+    }
+
+    gameState.logs.push(`⏩ 切断中のため、${currentTurnPlayer.name} のターンをスキップしました`);
+    nextTurn();
+  });
+
+  socket.on('leave_room', () => {
+    const player = gameState.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    player.isOnline = false;
+    player.disconnectedAt = Date.now();
+    gameState.logs.push(`🚪 ${player.name} が一時退席しました（いつでも復帰可能）`);
+    socket.emit('left_room_confirm');
+    broadcastState();
+    io.emit('lobby_status', getLobbyStatus());
   });
 
   socket.on('start_game', () => {
@@ -727,30 +882,29 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     const leftPlayer = gameState.players.find(p => p.id === socket.id);
-    gameState.players = gameState.players.filter(p => p.id !== socket.id);
-    if (gameState.pendingDiscardPlayerId === socket.id) {
-      gameState.pendingDiscardPlayerId = null;
+    if (!leftPlayer) return;
+
+    leftPlayer.isOnline = false;
+    leftPlayer.disconnectedAt = Date.now();
+
+    if (gameState.isGameStarted) {
+      // ゲーム中の場合はプレイヤー情報（得点カード、イベントカード、ターン）を保持
+      gameState.logs.push(`⚠️ ${leftPlayer.name} の通信が切断されました（同じ名前または端末で再入室可能）`);
+      broadcastState();
+      io.emit('lobby_status', getLobbyStatus());
+    } else {
+      // ロビー待機中の場合: リロード等での即復帰を可能にしつつ、25秒戻らなければロビーから除外
+      setTimeout(() => {
+        if (!gameState.isGameStarted && !leftPlayer.isOnline) {
+          gameState.players = gameState.players.filter(p => p.token !== leftPlayer.token);
+          gameState.logs.push(`${leftPlayer.name} が退出しました`);
+          broadcastState();
+          io.emit('lobby_status', getLobbyStatus());
+        }
+      }, 25000);
+      broadcastState();
+      io.emit('lobby_status', getLobbyStatus());
     }
-    if (gameState.pendingSurvey && gameState.pendingSurvey.playerId === socket.id) {
-      gameState.decks.mineDeck.push(...gameState.pendingSurvey.candidates);
-      gameState.decks.mineDeck = shuffle(gameState.decks.mineDeck);
-      gameState.pendingSurvey = null;
-    }
-    if (gameState.pendingTrade && gameState.pendingTrade.playerId === socket.id) {
-      gameState.pendingTrade = null;
-    }
-    if (gameState.pendingReveal && gameState.pendingReveal.playerId === socket.id) {
-      gameState.pendingReveal = null;
-    }
-    if (leftPlayer) {
-      gameState.logs.push(`${leftPlayer.name} が退出しました`);
-    }
-    if (gameState.players.length === 0) {
-      gameState.isGameStarted = false;
-    } else if (gameState.currentTurnIndex >= gameState.players.length) {
-      gameState.currentTurnIndex = 0;
-    }
-    broadcastState();
   });
 });
 

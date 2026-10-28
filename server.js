@@ -60,7 +60,11 @@ function getOrCreateRoom(roomId) {
 
 function getRoom(roomId) {
   if (!roomId) return null;
-  const cleanId = String(roomId).trim().toUpperCase();
+  const cleanId = String(roomId)
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]/g, '')
+    .slice(0, 10);
   return rooms.get(cleanId) || null;
 }
 
@@ -654,7 +658,95 @@ io.on('connection', (socket) => {
     nextTurn(room);
   });
 
-  socket.on('leave_room', () => {
+  function handleVoluntaryLeave(targetSocket) {
+    let room = getRoom(targetSocket.roomId);
+    if (!room) {
+      for (const r of rooms.values()) {
+        if (r.players.some(p => p.id === targetSocket.id || (targetSocket.playerToken && p.token === targetSocket.playerToken))) {
+          room = r;
+          break;
+        }
+      }
+    }
+    if (!room) {
+      targetSocket.emit('voluntary_leave_success');
+      return;
+    }
+
+    const playerIndex = room.players.findIndex(p => p.id === targetSocket.id || (targetSocket.playerToken && p.token === targetSocket.playerToken));
+    if (playerIndex === -1) {
+      targetSocket.leave(room.roomId);
+      delete targetSocket.roomId;
+      delete targetSocket.playerToken;
+      targetSocket.emit('voluntary_leave_success', { roomId: room.roomId });
+      return;
+    }
+
+    const leavingPlayer = room.players[playerIndex];
+    const wasCurrentTurn = room.isGameStarted && room.currentTurnIndex === playerIndex;
+    const leavingName = leavingPlayer.name;
+    const leavingId = leavingPlayer.id;
+
+    // プレイヤーリストから削除
+    room.players.splice(playerIndex, 1);
+    room.logs.push(`🚪 【${leavingName}】さんが部屋から自主的に退出しました`);
+
+    // 保留アクションのクリーンアップ
+    if (room.pendingDiscardPlayerId === leavingId) room.pendingDiscardPlayerId = null;
+    if (room.pendingSurvey && room.pendingSurvey.playerId === leavingId) {
+      room.decks.mineDeck.push(...room.pendingSurvey.candidates);
+      room.decks.mineDeck = shuffle(room.decks.mineDeck);
+      room.pendingSurvey = null;
+    }
+    if (room.pendingTrade && room.pendingTrade.playerId === leavingId) room.pendingTrade = null;
+    if (room.pendingReveal && room.pendingReveal.playerId === leavingId) room.pendingReveal = null;
+
+    // ホストの再割当
+    ensureValidHost(room);
+
+    // ゲーム進行中だった場合の手番調整と残りプレイヤー確認
+    if (room.isGameStarted) {
+      if (room.players.length === 0) {
+        room.isGameStarted = false;
+        room.isGameOver = false;
+      } else {
+        if (wasCurrentTurn) {
+          if (room.currentTurnIndex >= room.players.length) {
+            room.currentTurnIndex = 0;
+          }
+          const nextPlayer = room.players[room.currentTurnIndex];
+          if (nextPlayer) {
+            room.logs.push(`👉 次の手番は【${nextPlayer.name}】さんです`);
+          }
+        } else if (playerIndex < room.currentTurnIndex) {
+          room.currentTurnIndex--;
+        }
+
+        if (room.players.length === 1) {
+          room.logs.push(`⚠️ 【${leavingName}】さんが退出したため、残りプレイヤーは【${room.players[0].name}】さん1名になりました`);
+        }
+      }
+    }
+
+    const targetRoomId = room.roomId;
+    targetSocket.leave(targetRoomId);
+    delete targetSocket.roomId;
+    delete targetSocket.playerToken;
+
+    targetSocket.emit('voluntary_leave_success', { roomId: targetRoomId });
+    broadcastState(room);
+    io.to(targetRoomId).emit('lobby_status', getLobbyStatus(room));
+  }
+
+  socket.on('leave_room_voluntary', () => {
+    handleVoluntaryLeave(socket);
+  });
+
+  socket.on('leave_room', (payload) => {
+    if (payload && payload.voluntary) {
+      return handleVoluntaryLeave(socket);
+    }
+
     const room = getRoom(socket.roomId);
     if (!room) return;
 

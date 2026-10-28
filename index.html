@@ -1103,6 +1103,26 @@
       border-color: #ff6b6b;
       transform: scale(0.96);
     }
+    .btn-lobby-leave {
+      background: #2a2222;
+      border: 1.5px solid #ef4444;
+      color: #fca5a5;
+      font-size: 0.88rem;
+      font-weight: bold;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+      display: none;
+    }
+    .btn-lobby-leave:hover {
+      background: #451a1a;
+      color: #fff;
+    }
+    .btn-lobby-leave:active {
+      transform: scale(0.97);
+    }
 
     /* 切断中バッジ */
     .badge-offline {
@@ -1392,6 +1412,7 @@
       <div id="lobbyStartNotice" style="display:none; font-size:0.78rem; color:#aaa; text-align:center; padding:7px; background:#1e1e1e; border-radius:6px; border:1px dashed #555;">
         ⏳ ホストがゲームを開始するのを待っています...
       </div>
+      <button id="lobbyLeaveBtn" class="btn-lobby-leave" type="button" style="display:none;">🚪 部屋を退出する</button>
       <div id="lobbyOrderNote" style="font-size:0.75rem; color:#ffd700; text-align:center; margin-top:-2px;">🎲 開始時に手番の順番（先攻・後攻）はランダムに決まります</div>
       <button id="lobbyRulesBtn" class="btn-rules-lobby" type="button">📖 ルール・カード一覧</button>
     </div>
@@ -1529,6 +1550,43 @@
     </div>
   </div>
 
+  <!-- ゲーム中退出選択ダイアログ -->
+  <div id="leaveGameModal" class="dialog-backdrop">
+    <div class="dialog-card pop-in" style="max-width: 350px;">
+      <div class="dialog-title" style="color: #ff6b6b; display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <span>🚪 部屋からの退出</span>
+      </div>
+      <div style="font-size: 0.84rem; color: #ddd; line-height: 1.45; text-align: left; margin: 2px 0 6px;">
+        部屋から退出しますか？ ご希望の退出方法を選択してください。
+      </div>
+
+      <!-- 完全退出オプション -->
+      <button type="button" id="btnVoluntaryLeaveGame" class="dialog-btn" style="background: linear-gradient(135deg, #b91c1c, #991b1b); color: #fff; text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; border: 1.5px solid #ef4444; border-radius: 8px; cursor: pointer;">
+        <span style="font-size: 0.92rem; font-weight: 900; display: flex; align-items: center; gap: 5px;">
+          <span>🚪 完全に部屋を退出する</span>
+        </span>
+        <span style="font-size: 0.72rem; color: #fca5a5; font-weight: normal; line-height: 1.3;">
+          部屋から完全に抜け、ホーム画面に戻ります。手番は次のプレイヤーへ移ります。
+        </span>
+      </button>
+
+      <!-- 一時退席オプション -->
+      <button type="button" id="btnTemporaryLeaveGame" class="dialog-btn" style="background: #2b2b2b; color: #ffd700; text-align: left; padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; border: 1.5px solid #555; border-radius: 8px; cursor: pointer;">
+        <span style="font-size: 0.92rem; font-weight: 800; display: flex; align-items: center; gap: 5px;">
+          <span>⏸️ 一時退席する（後で復帰）</span>
+        </span>
+        <span style="font-size: 0.72rem; color: #aaa; font-weight: normal; line-height: 1.3;">
+          手札・手番を維持したまま一時退席します。いつでも同じ部屋・名前で再入室できます。
+        </span>
+      </button>
+
+      <!-- キャンセルボタン -->
+      <button type="button" id="btnCancelLeaveGame" class="dialog-btn" style="background: #3a3a3a; color: #ccc; margin-top: 4px; padding: 9px; font-weight: bold; cursor: pointer;">
+        キャンセル
+      </button>
+    </div>
+  </div>
+
   <!-- 手札上限超過時のイベントカード破棄ダイアログ -->
   <div id="discardEventModal" class="dialog-backdrop">
     <div class="dialog-card">
@@ -1654,6 +1712,7 @@
       <div class="result-winner-box" id="resultWinner" style="display: none;">勝者: ---</div>
       
       <button class="btn btn-join" id="restartBtn" style="display: none;">ロビーへ戻る / もう一度遊ぶ</button>
+      <button class="btn" id="resultLeaveBtn" type="button" style="display: none; background:#2a2222; border:1.5px solid #ef4444; color:#fca5a5; margin-top:8px; font-weight:bold;">🚪 部屋を退出する</button>
     </div>
   </div>
 
@@ -2596,6 +2655,8 @@
       soundManager.playDraw();
       socket.emit('restart_game');
       resultModal.style.display = 'none';
+      const resultLeaveBtn = document.getElementById('resultLeaveBtn');
+      if (resultLeaveBtn) resultLeaveBtn.style.display = 'none';
       const overlay = document.getElementById('gameOverOverlay');
       if (overlay) overlay.style.display = 'none';
       isGameOverTriggered = false;
@@ -2747,10 +2808,8 @@
       );
     };
 
-    // キックされた通知の受信
-    socket.on('kicked', (data) => {
-      soundManager.playBomb();
-      showModal('👢 キックされました', data.message || 'ホストによって部屋からキックされました。');
+    // クライアント状態のリセット（退出時・キック時）
+    function resetToJoinScreen() {
       localStorage.removeItem(STORAGE_KEY_TOKEN);
       mySavedToken = '';
       currentClientState = null;
@@ -2760,27 +2819,137 @@
       if (roomSelectorBox) roomSelectorBox.style.display = 'flex';
       startBtn.style.display = 'none';
       if (lobbyStartNotice) lobbyStartNotice.style.display = 'none';
+      const lobbyLeaveBtn = document.getElementById('lobbyLeaveBtn');
+      if (lobbyLeaveBtn) lobbyLeaveBtn.style.display = 'none';
+      const myScoreCards = document.getElementById('myScoreCards');
+      if (myScoreCards) myScoreCards.innerHTML = '<div style="font-size:0.75rem; color:#555;">カードなし</div>';
+      const myEventCards = document.getElementById('myEventCards');
+      if (myEventCards) myEventCards.innerHTML = '<div style="font-size:0.75rem; color:#555;">イベントなし</div>';
+      if (myTotalScorePreview) myTotalScorePreview.innerText = '合計: 0点';
+      if (myTurnBadge) myTurnBadge.innerText = '';
+      if (drawBtn) drawBtn.disabled = true;
+    }
+
+    // キックされた通知の受信
+    socket.on('kicked', (data) => {
+      soundManager.playBomb();
+      showModal('👢 キックされました', data.message || 'ホストによって部屋からキックされました。');
+      resetToJoinScreen();
     });
 
-    // 退席ボタン
-    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
-    if (leaveRoomBtn) {
-      leaveRoomBtn.addEventListener('click', () => {
+    // サーバーからの自主退出完了通知
+    socket.on('voluntary_leave_success', () => {
+      resetToJoinScreen();
+      socket.emit('query_room_lobby', { roomId: currentRoomId });
+    });
+
+    // 1. ロビー待機中の自主的退出ボタン
+    const lobbyLeaveBtn = document.getElementById('lobbyLeaveBtn');
+    if (lobbyLeaveBtn) {
+      lobbyLeaveBtn.addEventListener('click', () => {
         showCustomConfirm(
-          '🚪 部屋から一時退席',
-          '部屋から一時退席しますか？\n\n※所持している得点カードやイベントカード、ターン位置は保持されます。\n後から同じ名前でいつでも同じ部屋に復帰できます。',
+          '🚪 部屋の退出確認',
+          `部屋【${currentRoomId}】のロビーから退出しますか？\n\n参加を解除し、部屋番号の変更やホーム画面へ戻ることができます。`,
           () => {
             soundManager.playDraw();
-            socket.emit('leave_room');
-            joinScreen.style.display = 'flex';
-            joinBtn.style.display = 'block';
-            playerNameInput.style.display = 'block';
-            if (roomSelectorBox) roomSelectorBox.style.display = 'flex';
-            startBtn.style.display = 'none';
-            if (lobbyStartNotice) lobbyStartNotice.style.display = 'none';
-            showToast('🚪 部屋から退席しました（いつでも復帰可能）');
+            socket.emit('leave_room_voluntary');
+            resetToJoinScreen();
+            showToast(`🚪 部屋【${currentRoomId}】から退出しました`);
+            socket.emit('query_room_lobby', { roomId: currentRoomId });
           },
-          '退席する'
+          '🚪 退出する',
+          'linear-gradient(135deg, #b91c1c, #7f1d1d)'
+        );
+      });
+    }
+
+    // 2. 対戦中ヘッダーの「🚪 退出」ボタン（モーダルを開く）
+    const leaveRoomBtn = document.getElementById('leaveRoomBtn');
+    const leaveGameModal = document.getElementById('leaveGameModal');
+    const btnVoluntaryLeaveGame = document.getElementById('btnVoluntaryLeaveGame');
+    const btnTemporaryLeaveGame = document.getElementById('btnTemporaryLeaveGame');
+    const btnCancelLeaveGame = document.getElementById('btnCancelLeaveGame');
+
+    if (leaveRoomBtn) {
+      leaveRoomBtn.addEventListener('click', () => {
+        soundManager.playDraw();
+        if (leaveGameModal) {
+          leaveGameModal.style.display = 'flex';
+        }
+      });
+    }
+
+    if (btnCancelLeaveGame && leaveGameModal) {
+      btnCancelLeaveGame.addEventListener('click', () => {
+        leaveGameModal.style.display = 'none';
+      });
+    }
+
+    // モーダル外枠クリックで閉じる
+    if (leaveGameModal) {
+      leaveGameModal.addEventListener('click', (e) => {
+        if (e.target === leaveGameModal) {
+          leaveGameModal.style.display = 'none';
+        }
+      });
+    }
+
+    // 2-A. 対戦中からの「完全に部屋を退出する」（自主的完全退出）
+    if (btnVoluntaryLeaveGame) {
+      btnVoluntaryLeaveGame.addEventListener('click', () => {
+        if (leaveGameModal) leaveGameModal.style.display = 'none';
+        showCustomConfirm(
+          '🚪 完全に退出しますか？',
+          '部屋から完全に退出します。\n所持している得点カード・イベントカードはゲームから除外され、次のプレイヤーへ手番が移ります。\nホーム画面に戻ります。',
+          () => {
+            soundManager.playBomb();
+            socket.emit('leave_room_voluntary');
+            resetToJoinScreen();
+            showToast('🚪 部屋から完全に退出しました');
+            socket.emit('query_room_lobby', { roomId: currentRoomId });
+          },
+          '🚪 完全に退出する',
+          'linear-gradient(135deg, #b91c1c, #7f1d1d)'
+        );
+      });
+    }
+
+    // 2-B. 対戦中からの「一時退席する」（後で復帰可能）
+    if (btnTemporaryLeaveGame) {
+      btnTemporaryLeaveGame.addEventListener('click', () => {
+        if (leaveGameModal) leaveGameModal.style.display = 'none';
+        soundManager.playDraw();
+        socket.emit('leave_room');
+        joinScreen.style.display = 'flex';
+        joinBtn.style.display = 'block';
+        playerNameInput.style.display = 'block';
+        if (roomSelectorBox) roomSelectorBox.style.display = 'flex';
+        startBtn.style.display = 'none';
+        if (lobbyStartNotice) lobbyStartNotice.style.display = 'none';
+        if (lobbyLeaveBtn) lobbyLeaveBtn.style.display = 'none';
+        showToast('🚪 部屋から一時退席しました（いつでも復帰可能）');
+      });
+    }
+
+    // 3. リザルト画面からの退出ボタン
+    const resultLeaveBtn = document.getElementById('resultLeaveBtn');
+    if (resultLeaveBtn) {
+      resultLeaveBtn.addEventListener('click', () => {
+        showCustomConfirm(
+          '🚪 部屋の退出',
+          '部屋から退出してホーム画面に戻りますか？',
+          () => {
+            soundManager.playDraw();
+            socket.emit('leave_room_voluntary');
+            if (resultModal) resultModal.style.display = 'none';
+            const overlay = document.getElementById('gameOverOverlay');
+            if (overlay) overlay.style.display = 'none';
+            resetToJoinScreen();
+            showToast('🚪 部屋から退出しました');
+            socket.emit('query_room_lobby', { roomId: currentRoomId });
+          },
+          '🚪 退出する',
+          'linear-gradient(135deg, #b91c1c, #7f1d1d)'
         );
       });
     }
@@ -2847,6 +3016,8 @@
           startBtn.style.display = 'none';
           if (lobbyStartNotice) lobbyStartNotice.style.display = 'block';
         }
+        const lobbyLeaveBtn = document.getElementById('lobbyLeaveBtn');
+        if (lobbyLeaveBtn) lobbyLeaveBtn.style.display = 'block';
       }
     });
 
@@ -2935,6 +3106,29 @@
         if (lobbyStartNotice && !isGameStarted) {
           lobbyStartNotice.style.display = 'block';
         }
+      }
+
+      const isCurrentUserInRoom = players.some(p => {
+        const pToken = typeof p === 'object' ? p.token : '';
+        const pId = typeof p === 'object' ? p.id : '';
+        return (mySavedToken && pToken === mySavedToken) || (socket.id && pId === socket.id);
+      });
+
+      const lobbyLeaveBtn = document.getElementById('lobbyLeaveBtn');
+      if (lobbyLeaveBtn) {
+        lobbyLeaveBtn.style.display = (isCurrentUserInRoom && !isGameStarted) ? 'block' : 'none';
+      }
+
+      if (isCurrentUserInRoom && !isGameStarted) {
+        joinBtn.style.display = 'none';
+        playerNameInput.style.display = 'none';
+        if (roomSelectorBox) roomSelectorBox.style.display = 'none';
+      } else if (!isCurrentUserInRoom && !isGameStarted) {
+        joinBtn.style.display = 'block';
+        playerNameInput.style.display = 'block';
+        if (roomSelectorBox) roomSelectorBox.style.display = 'flex';
+        if (startBtn) startBtn.style.display = 'none';
+        if (lobbyStartNotice) lobbyStartNotice.style.display = 'none';
       }
 
       // 進行中ゲームへの復帰スロットボタン表示
@@ -3635,6 +3829,11 @@
         setTimeout(() => {
           restartBtn.style.display = 'block';
           restartBtn.classList.add('pop-in');
+          const resultLeaveBtn = document.getElementById('resultLeaveBtn');
+          if (resultLeaveBtn) {
+            resultLeaveBtn.style.display = 'block';
+            resultLeaveBtn.classList.add('pop-in');
+          }
         }, 500);
       }
 
